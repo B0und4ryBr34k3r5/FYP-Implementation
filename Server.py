@@ -1,5 +1,8 @@
 import hashlib
 import os
+import subprocess
+import json
+
 from flask import Flask, request, jsonify, render_template
 from web3 import Web3
 from pymongo import MongoClient
@@ -47,6 +50,53 @@ contract = w3.eth.contract(address=contract_address, abi=abi)
 def hash_data(data):
     return hashlib.sha256(str(data).encode()).hexdigest()
 
+
+# 🔥 ZKP FUNCTION（新增）
+def generate_zkp(temp_value):
+    try:
+        # demo circuit: data^2 = hash
+        data_val = int(temp_value)
+        hash_val = data_val * data_val
+
+        input_data = {
+            "data": data_val,
+            "hash": hash_val
+        }
+
+        with open("ZKP/input.json", "w") as f:
+            json.dump(input_data, f)
+
+        # witness
+        subprocess.run([
+            "node",
+            "ZKP/HashCheck_js/generate_witness.js",
+            "ZKP/HashCheck_js/HashCheck.wasm",
+            "ZKP/input.json",
+            "ZKP/witness.wtns"
+        ], check=True)
+
+        # proof
+        subprocess.run([
+            r"C:\Users\Zhen Xuan\AppData\Roaming\npm\snarkjs.cmd",
+            "groth16",
+            "prove",
+            "ZKP/circuit_final.zkey",
+            "ZKP/witness.wtns",
+            "ZKP/proof.json",
+            "ZKP/public.json"
+        ], check=True)
+
+        # load proof
+        with open("ZKP/proof.json") as f:
+            proof = json.load(f)
+
+        return proof
+
+    except Exception as e:
+        print("❌ ZKP ERROR:", e)
+        return None
+
+
 # =========================
 # ROUTES
 # =========================
@@ -58,12 +108,16 @@ def receive_data():
     # Hash
     data_hash = hash_data(data)
 
+    # 🔥 ZKP（新增）
+    proof = generate_zkp(data["temperature"])
+
     # MongoDB
     collection.insert_one({
         "device_id": data["device_id"],
         "timestamp": data["timestamp"],
         "temperature": data["temperature"],
-        "hash": data_hash
+        "hash": data_hash,
+        "zkp_proof": proof   # 🔥 存 proof
     })
 
     # Blockchain
@@ -83,14 +137,18 @@ def receive_data():
     print(f"Time                : {data['timestamp']}")
     print(f"Temp                : {data['temperature']}°C")
     print(f"Data Hash (SHA-256) : {data_hash}")
-    print(f"Tx Hash             : {tx.hex()}")
+
+    print("\n🔐 ZKP PROOF GENERATED")
+    print(proof)
+
+    print(f"\nTx Hash             : {tx.hex()}")
     print(f"Block No            : {receipt.blockNumber}")
     print("="*50)
-    print("Stored in MongoDB")
-    print("Stored in Blockchain")
+    print("Stored in MongoDB + Blockchain + ZKP")
     print("="*50 + "\n")
 
     return jsonify({"status": "stored"})
+
 
 @app.route("/DigitalTwin")
 def DigitalTwin():
@@ -107,10 +165,11 @@ def DigitalTwin():
         latest_temp=latest_temp
     )
 
+
 # =========================
 # RUN SERVER
 # =========================
 
 if __name__ == "__main__":
-    print("\n\nStarting Server...\n")
+    print("\n\n🚀 Starting Server with ZKP...\n")
     app.run(debug=True)
