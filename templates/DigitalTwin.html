@@ -46,6 +46,21 @@
         <div class="temp">{{ latest_temp }} °C</div>
     </div>
 
+    <div class="card">
+        <h3>Integrity Status</h3>
+        <div class="temp">{{ integrity_status }}</div>
+    </div>
+
+    <div class="card">
+        <h3>Sensor Status</h3>
+        <div class="temp">{{ sensor_status }}</div>
+    </div>
+
+    <div class="card">
+        <h3>Temperature Alert</h3>
+        <div class="temp">{{ temperature_alert }}</div>
+    </div>
+
     <h3>Temperature Trend</h3>
 
     <canvas id="tempChart" width="700" height="350"></canvas>

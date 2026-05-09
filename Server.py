@@ -7,6 +7,7 @@ from flask import Flask, request, jsonify, render_template
 from web3 import Web3
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from datetime import datetime
 
 # =========================
 # INIT
@@ -284,7 +285,15 @@ def receive_data():
 @app.route("/DigitalTwin")
 def DigitalTwin():
 
+    # =========================
+    # GET DATA FROM MONGODB
+    # =========================
+
     data = list(collection.find().sort("_id", -1).limit(50))
+
+    # =========================
+    # TEMPERATURE + TIMESTAMP
+    # =========================
 
     temperatures = [d.get("temperature", 0) for d in data][::-1]
 
@@ -295,13 +304,116 @@ def DigitalTwin():
         if data else "No Data"
     )
 
+    # =========================
+    # INTEGRITY CHECK
+    # =========================
+
+    integrity_status = []
+
+    for d in data:
+
+        original_hash = d.get("hash", "")
+
+        # Recalculate hash
+        recalculated_hash = hashlib.sha256(
+
+            str({
+                "device_id": d.get("device_id"),
+                "timestamp": d.get("timestamp"),
+                "temperature": d.get("temperature")
+            }).encode()
+
+        ).hexdigest()
+
+        # Compare hash
+        if original_hash == recalculated_hash:
+
+            integrity_status.append("VALID ✅")
+
+        else:
+
+            integrity_status.append("TAMPERED ❌")
+
+    # Latest integrity status
+    latest_integrity = (
+        integrity_status[-1]
+        if integrity_status else "UNKNOWN"
+    )
+
+    # =========================
+    # SENSOR STATUS CHECK
+    # =========================
+
+    sensor_status = "OFFLINE ❌"
+
+    if data:
+
+        latest_timestamp = data[0].get("timestamp")
+
+        try:
+
+            latest_time = datetime.fromisoformat(
+                latest_timestamp
+            )
+
+            current_time = datetime.now()
+
+            time_difference = (
+                current_time - latest_time
+            ).total_seconds()
+
+            # 如果 15 秒内有新数据
+            if time_difference <= 15:
+
+                sensor_status = "ONLINE ✅"
+
+        except:
+
+            sensor_status = "ERROR ⚠"
+
+    # =========================
+    # TEMPERATURE ALERT
+    # =========================
+
+    temperature_alert = "NORMAL ✅"
+
+    if data:
+
+        try:
+
+            current_temperature = float(
+                data[0].get("temperature", 0)
+            )
+
+            # High temperature
+            if current_temperature >= 75:
+
+                temperature_alert = "HIGH TEMPERATURE 🚨"
+
+            # Low temperature
+            elif current_temperature < 30:
+
+                temperature_alert = "LOW TEMPERATURE ❄"
+
+            # Normal temperature
+            else:
+
+                temperature_alert = "NORMAL ✅"
+
+        except:
+
+            temperature_alert = "SENSOR ERROR ⚠"
+
     return render_template(
 
         "DigitalTwin.html",
 
         temperatures=temperatures,
         timestamps=timestamps,
-        latest_temp=latest_temp
+        latest_temp=latest_temp,
+        integrity_status=latest_integrity,
+        sensor_status=sensor_status,
+        temperature_alert=temperature_alert
 
     )
 
