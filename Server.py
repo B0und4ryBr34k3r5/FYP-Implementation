@@ -226,15 +226,21 @@ def receive_data():
     # STORE ON BLOCKCHAIN
     # =========================
 
-    tx = contract.functions.storeData(
+    if verified:
 
-        data["device_id"],
-        data["timestamp"],
-        int(data["temperature"])
+        tx = contract.functions.storeData(
+            data["device_id"],
+            data["timestamp"],
+            int(data["temperature"])
+        ).transact({"from": account})
 
-    ).transact({"from": account})
+        receipt = w3.eth.wait_for_transaction_receipt(tx)
 
-    receipt = w3.eth.wait_for_transaction_receipt(tx)
+        print("✅ Stored on Blockchain")
+
+    else:
+
+        print("❌ Invalid Proof - Blockchain Rejected")
 
     # =========================
     # OUTPUT
