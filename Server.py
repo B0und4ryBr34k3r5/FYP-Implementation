@@ -21,10 +21,14 @@ client = MongoClient(os.getenv("MONGO_URI"))
 db = client["iot_system"]
 collection = db["sensor_data"]
 
-# Blockchain
+# =========================
+# BLOCKCHAIN
+# =========================
+
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:8545"))
 
-contract_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+# IoTData Contract
+contract_address = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
 
 abi = [
     {
@@ -41,7 +45,29 @@ abi = [
 ]
 
 account = w3.eth.accounts[0]
-contract = w3.eth.contract(address=contract_address, abi=abi)
+
+contract = w3.eth.contract(
+    address=contract_address,
+    abi=abi
+)
+
+# =========================
+# VERIFIER CONTRACT
+# =========================
+
+with open("Blockchain/artifacts/contracts/Verifier.sol/Groth16Verifier.json") as f:
+    verifier_json = json.load(f)
+
+verifier_abi = verifier_json["abi"]
+
+verifier_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+
+verifier_contract = w3.eth.contract(
+    address=verifier_address,
+    abi=verifier_abi
+)
+
+print("✅ Verifier Connected")
 
 # =========================
 # FUNCTIONS
@@ -50,11 +76,15 @@ contract = w3.eth.contract(address=contract_address, abi=abi)
 def hash_data(data):
     return hashlib.sha256(str(data).encode()).hexdigest()
 
+# =========================
+# ZKP FUNCTION
+# =========================
 
-# 🔥 ZKP FUNCTION（新增）
 def generate_zkp(temp_value):
+
     try:
-        # demo circuit: data^2 = hash
+
+        # demo circuit: data² = hash
         data_val = int(temp_value)
         hash_val = data_val * data_val
 
@@ -66,7 +96,7 @@ def generate_zkp(temp_value):
         with open("ZKP/input.json", "w") as f:
             json.dump(input_data, f)
 
-        # witness
+        # Generate Witness
         subprocess.run([
             "node",
             "ZKP/HashCheck_js/generate_witness.js",
@@ -75,7 +105,7 @@ def generate_zkp(temp_value):
             "ZKP/witness.wtns"
         ], check=True)
 
-        # proof
+        # Generate Proof
         subprocess.run([
             r"C:\Users\Zhen Xuan\AppData\Roaming\npm\snarkjs.cmd",
             "groth16",
@@ -86,16 +116,20 @@ def generate_zkp(temp_value):
             "ZKP/public.json"
         ], check=True)
 
-        # load proof
+        # Load Proof
         with open("ZKP/proof.json") as f:
             proof = json.load(f)
 
-        return proof
+        with open("ZKP/public.json") as f:
+            public = json.load(f)
+
+        return proof, public
 
     except Exception as e:
-        print("❌ ZKP ERROR:", e)
-        return None
 
+        print("❌ ZKP ERROR:", e)
+
+        return None, None
 
 # =========================
 # ROUTES
@@ -103,73 +137,174 @@ def generate_zkp(temp_value):
 
 @app.route("/data", methods=["POST"])
 def receive_data():
+
     data = request.json
 
-    # Hash
+    # =========================
+    # HASHING
+    # =========================
+
     data_hash = hash_data(data)
 
-    # 🔥 ZKP（新增）
-    proof = generate_zkp(data["temperature"])
+    # =========================
+    # ZKP GENERATION
+    # =========================
 
-    # MongoDB
+    proof, public = generate_zkp(data["temperature"])
+
+    # =========================
+    # BLOCKCHAIN ZKP VERIFY
+    # =========================
+
+    verified = False
+
+    if proof:
+
+        try:
+
+            # =========================
+            # CONVERT PROOF TO UINT256
+            # =========================
+
+            pi_a = [
+                int(proof["pi_a"][0]),
+                int(proof["pi_a"][1])
+            ]
+
+            pi_b = [
+                [
+                    int(proof["pi_b"][0][1]),
+                    int(proof["pi_b"][0][0])
+                ],
+                [
+                    int(proof["pi_b"][1][1]),
+                    int(proof["pi_b"][1][0])
+                ]
+            ]
+
+            pi_c = [
+                int(proof["pi_c"][0]),
+                int(proof["pi_c"][1])
+            ]
+
+            public_signals = [
+                int(x) for x in public
+            ]
+
+            # =========================
+            # VERIFY PROOF
+            # =========================
+
+            verified = verifier_contract.functions.verifyProof(
+                pi_a,
+                pi_b,
+                pi_c,
+                public_signals
+            ).call()
+
+        except Exception as e:
+
+            print("❌ VERIFY ERROR:", e)
+
+    # =========================
+    # MONGODB
+    # =========================
+
     collection.insert_one({
+
         "device_id": data["device_id"],
         "timestamp": data["timestamp"],
         "temperature": data["temperature"],
         "hash": data_hash,
-        "zkp_proof": proof   # 🔥 存 proof
+        "zkp_verified": verified,
+        "zkp_proof": proof,
+        "public_signals": public
+
     })
 
-    # Blockchain
+    # =========================
+    # STORE ON BLOCKCHAIN
+    # =========================
+
     tx = contract.functions.storeData(
+
         data["device_id"],
         data["timestamp"],
         int(data["temperature"])
+
     ).transact({"from": account})
 
     receipt = w3.eth.wait_for_transaction_receipt(tx)
 
+    # =========================
     # OUTPUT
-    print("\n" + "="*50)
-    print("DATA RECEIVED FROM IoT")
-    print("="*50)
+    # =========================
+
+    print("\n" + "="*60)
+
+    print("📡 DATA RECEIVED FROM IoT")
+
+    print("="*60)
+
     print(f"Device ID           : {data['device_id']}")
     print(f"Time                : {data['timestamp']}")
-    print(f"Temp                : {data['temperature']}°C")
-    print(f"Data Hash (SHA-256) : {data_hash}")
+    print(f"Temperature         : {data['temperature']}°C")
 
-    print("\n🔐 ZKP PROOF GENERATED")
-    print(proof)
+    print("\n🔐 HASH")
+    print(f"SHA-256             : {data_hash}")
 
-    print(f"\nTx Hash             : {tx.hex()}")
-    print(f"Block No            : {receipt.blockNumber}")
-    print("="*50)
-    print("Stored in MongoDB + Blockchain + ZKP")
-    print("="*50 + "\n")
+    print("\n🧠 ZKP")
+    print(f"Proof Generated     : {'YES' if proof else 'NO'}")
+    print(f"Proof Verified      : {verified}")
 
-    return jsonify({"status": "stored"})
+    print("\n⛓ BLOCKCHAIN")
+    print(f"Tx Hash             : {tx.hex()}")
+    print(f"Block Number        : {receipt.blockNumber}")
 
+    print("\n🗄 DATABASE")
+    print("Stored in MongoDB")
+
+    print("="*60 + "\n")
+
+    return jsonify({
+        "status": "stored",
+        "zkp_verified": verified
+    })
+
+# =========================
+# DIGITAL TWIN
+# =========================
 
 @app.route("/DigitalTwin")
 def DigitalTwin():
+
     data = list(collection.find().sort("_id", -1).limit(50))
 
     temperatures = [d.get("temperature", 0) for d in data][::-1]
+
     timestamps = [d.get("timestamp", "") for d in data][::-1]
-    latest_temp = data[0].get("temperature", "No Data") if data else "No Data"
+
+    latest_temp = (
+        data[0].get("temperature", "No Data")
+        if data else "No Data"
+    )
 
     return render_template(
+
         "DigitalTwin.html",
+
         temperatures=temperatures,
         timestamps=timestamps,
         latest_temp=latest_temp
-    )
 
+    )
 
 # =========================
 # RUN SERVER
 # =========================
 
 if __name__ == "__main__":
-    print("\n\n🚀 Starting Server with ZKP...\n")
+
+    print("\n🚀 Starting Server with ZKP Verification...\n")
+
     app.run(debug=True)
