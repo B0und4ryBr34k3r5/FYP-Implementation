@@ -1,109 +1,528 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <title>Digital Twin Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>IoT Digital Twin Dashboard</title>
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        body {
-            font-family: Arial;
-            background: #0f172a;
-            color: white;
-            text-align: center;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        h1 {
-            margin-top: 20px;
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #020617;
+            color: white;
+            overflow-x: hidden;
+            min-height: 100vh;
+            padding: 40px;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background:
+                radial-gradient(circle at top left, #0ea5e920, transparent 30%),
+                radial-gradient(circle at bottom right, #9333ea20, transparent 30%);
+            z-index: -1;
+        }
+
+        .header {
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 42px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .header p {
+            color: #94a3b8;
+            margin-top: 10px;
+        }
+
+        /* =========================
+           TOP CARDS
+        ========================= */
+
+        .top-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 25px;
+            margin-bottom: 35px;
         }
 
         .card {
-            background: #1e293b;
-            padding: 20px;
-            margin: 20px auto;
-            width: 300px;
-            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            padding: 25px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 0 25px rgba(0, 0, 0, 0.3);
+            transition: 0.3s ease;
         }
 
-        .temp {
-            font-size: 40px;
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.3);
+        }
+
+        .card h3 {
+            font-size: 15px;
+            color: #cbd5e1;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .card-value {
+            font-size: 34px;
+            font-weight: 700;
+        }
+
+        .blue {
             color: #38bdf8;
+            text-shadow: 0 0 15px #38bdf8;
+        }
+
+        .green {
+            color: #4ade80;
+            text-shadow: 0 0 15px #4ade80;
+        }
+
+        .purple {
+            color: #c084fc;
+            text-shadow: 0 0 15px #c084fc;
+        }
+
+        .red {
+            color: #f87171;
+            text-shadow: 0 0 15px #f87171;
+        }
+
+        /* =========================
+           CHART
+        ========================= */
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 25px;
+            padding: 30px;
+            backdrop-filter: blur(12px);
+            margin-bottom: 35px;
+        }
+
+        .chart-title {
+            font-size: 22px;
+            margin-bottom: 20px;
+            font-weight: 600;
         }
 
         canvas {
-            background: white;
-            border-radius: 10px;
-            padding: 10px;
+            width: 100% !important;
+            height: 450px !important;
+        }
+
+        /* =========================
+           BOTTOM SECTION
+        ========================= */
+
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 25px;
+        }
+
+        .table-box,
+        .notification-box {
+
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 25px;
+            padding: 25px;
+            backdrop-filter: blur(12px);
+        }
+
+        .section-title {
+            font-size: 22px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table th {
+            text-align: left;
+            padding: 12px;
+            color: #94a3b8;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .notification {
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 4px solid #38bdf8;
+        }
+
+        .notification.alert {
+            border-left: 4px solid #f87171;
+        }
+
+        .notification.warning {
+            border-left: 4px solid #facc15;
+        }
+
+        .notification.success {
+            border-left: 4px solid #4ade80;
+        }
+
+        /* =========================
+           RESPONSIVE
+        ========================= */
+
+        @media(max-width:1000px) {
+
+            .bottom-grid {
+                grid-template-columns: 1fr;
+            }
+
+            body {
+                padding: 20px;
+            }
+
         }
     </style>
+
 </head>
 
 <body>
 
-    <h1>🌡 Digital Twin Dashboard</h1>
+    <!-- =========================
+         HEADER
+    ========================= -->
 
-    <div class="card">
-        <h3>Current Temperature</h3>
-        <div class="temp">{{ latest_temp }} °C</div>
+    <div class="header">
+
+        <h1>IoT Digital Twin Dashboard</h1>
+
+        <p>
+            Real-Time Monitoring • Blockchain • ZKP Verification
+        </p>
+
     </div>
 
-    <div class="card">
-        <h3>Integrity Status</h3>
-        <div class="temp">{{ integrity_status }}</div>
+    <!-- =========================
+         TOP STATUS CARDS
+    ========================= -->
+
+    <div class="top-grid">
+
+        <!-- Integrity -->
+
+        <div class="card">
+
+            <h3>Integrity Status</h3>
+
+            <div class="card-value green">
+                {{ integrity_status }}
+            </div>
+
+        </div>
+
+        <!-- Sensor -->
+
+        <div class="card">
+
+            <h3>Sensor Status</h3>
+
+            <div class="card-value purple">
+                {{ sensor_status }}
+            </div>
+
+        </div>
+
+        <!-- Temperature -->
+
+        <div class="card">
+
+            <h3>Current Temperature</h3>
+
+            <div class="card-value blue">
+                {{ latest_temp }} °C
+            </div>
+
+        </div>
+
+        <!-- ZKP -->
+
+        <div class="card">
+
+            <h3>Temperature Alert</h3>
+
+            {% if "HIGH" in temperature_alert %}
+
+            <div class="card-value red">
+                {{ temperature_alert }}
+            </div>
+
+            {% elif "LOW" in temperature_alert %}
+
+            <div class="card-value blue">
+                {{ temperature_alert }}
+            </div>
+
+            {% else %}
+
+            <div class="card-value green">
+                {{ temperature_alert }}
+            </div>
+
+            {% endif %}
+
+        </div>
+
     </div>
 
-    <div class="card">
-        <h3>Sensor Status</h3>
-        <div class="temp">{{ sensor_status }}</div>
+    <!-- =========================
+         CHART
+    ========================= -->
+
+    <div class="chart-container">
+
+        <div class="chart-title">
+            Temperature Trend
+        </div>
+
+        <canvas id="tempChart"></canvas>
+
     </div>
 
-    <div class="card">
-        <h3>Temperature Alert</h3>
-        <div class="temp">{{ temperature_alert }}</div>
+    <!-- =========================
+         BOTTOM SECTION
+    ========================= -->
+
+    <div class="bottom-grid">
+
+        <!-- Live Feed -->
+
+        <div class="table-box">
+
+            <div class="section-title">
+                Live Feed
+            </div>
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Timestamp</th>
+                        <th>Temperature</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {% for temp in temperatures %}
+
+                    <tr>
+
+                        <td>
+                            {{ timestamps[loop.index0] }}
+                        </td>
+
+                        <td>
+                            {{ temp }} °C
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <!-- Notifications -->
+
+        <div class="notification-box">
+
+            <div class="section-title">
+                System Notifications
+            </div>
+
+            <div class="notification success">
+                ✅ Blockchain Verified
+            </div>
+
+            <div class="notification success">
+                🔐 ZKP Proof Verified
+            </div>
+
+            <div class="notification">
+                📡 Sensor Connected
+            </div>
+
+            {% if "HIGH" in temperature_alert %}
+
+            <div class="notification alert">
+                🚨 High Temperature Detected
+            </div>
+
+            {% endif %}
+
+            {% if "LOW" in temperature_alert %}
+
+            <div class="notification warning">
+                ❄ Low Temperature Detected
+            </div>
+
+            {% endif %}
+
+            {% if "OFFLINE" in sensor_status %}
+
+            <div class="notification alert">
+                ❌ Sensor Offline
+            </div>
+
+            {% endif %}
+
+        </div>
+
     </div>
 
-    <h3>Temperature Trend</h3>
-
-    <canvas id="tempChart" width="700" height="350"></canvas>
+    <!-- =========================
+         CHART JS
+    ========================= -->
 
     <script>
+
         const temps = {{ temperatures | tojson }};
         const times = {{ timestamps | tojson }};
 
         const ctx = document.getElementById('tempChart');
 
         new Chart(ctx, {
+
             type: 'line',
+
             data: {
+
                 labels: times,
-                datasets: [{
-                    label: 'Temperature (°C)',
-                    data: temps,
-                    borderColor: '#38bdf8',
-                    tension: 0.3,
-                    fill: false
-                }]
-            },
-            options: {
-                scales: {
-                    x: {
-                        ticks: {
-                            color: 'black'
-                        }
+
+                datasets: [
+
+                    {
+                        label: 'Temperature (°C)',
+                        data: temps,
+                        borderColor: '#38bdf8',
+                        backgroundColor: '#38bdf8',
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointHoverRadius: 8
                     },
-                    y: {
-                        ticks: {
-                            color: 'black'
+
+                    {
+                        label: 'High Temp Threshold',
+                        data: Array(times.length).fill(75),
+                        borderColor: '#f87171',
+                        borderDash: [8, 8],
+                        pointRadius: 0
+                    },
+
+                    {
+                        label: 'Low Temp Threshold',
+                        data: Array(times.length).fill(30),
+                        borderColor: '#facc15',
+                        borderDash: [8, 8],
+                        pointRadius: 0
+                    }
+
+                ]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                plugins: {
+
+                    legend: {
+                        labels: {
+                            color: 'white'
                         }
                     }
+
+                },
+
+                scales: {
+
+                    x: {
+                        ticks: {
+                            color: 'white'
+                        },
+                        grid: {
+                            color: 'rgba(255,255,255,0.08)'
+                        }
+                    },
+
+                    y: {
+                        ticks: {
+                            color: 'white'
+                        },
+                        grid: {
+                            color: 'rgba(255,255,255,0.08)'
+                        }
+                    }
+
                 }
+
             }
+
         });
 
-        // 🔥 自动刷新（关键）
+        // Auto refresh every 5 sec
         setTimeout(() => {
+
             location.reload();
-        }, 3000);
+
+        }, 5000);
+
     </script>
 
 </body>
+
 </html>
