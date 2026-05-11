@@ -2,7 +2,9 @@
 <html lang="en">
 
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>IoT Digital Twin Dashboard</title>
@@ -14,6 +16,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
+
         * {
             margin: 0;
             padding: 0;
@@ -21,40 +24,106 @@
         }
 
         body {
+
             font-family: 'Inter', sans-serif;
+
             background: #020617;
+
             color: white;
+
             overflow-x: hidden;
+
             min-height: 100vh;
+
             padding: 40px;
         }
 
         body::before {
+
             content: "";
+
             position: fixed;
+
             width: 100%;
+
             height: 100%;
+
             top: 0;
             left: 0;
+
             background:
                 radial-gradient(circle at top left, #0ea5e920, transparent 30%),
                 radial-gradient(circle at bottom right, #9333ea20, transparent 30%);
+
             z-index: -1;
         }
 
         .header {
+
             margin-bottom: 30px;
         }
 
         .header h1 {
+
             font-size: 42px;
+
             font-weight: 700;
+
             letter-spacing: 1px;
         }
 
         .header p {
+
             color: #94a3b8;
+
             margin-top: 10px;
+        }
+
+        /* =========================
+           NOTIFICATION BAR
+        ========================= */
+
+        .notification-wrapper {
+
+            background: rgba(255, 255, 255, 0.05);
+
+            border: 1px solid rgba(255, 255, 255, 0.15);
+
+            border-radius: 25px;
+
+            padding: 25px;
+
+            backdrop-filter: blur(12px);
+
+            margin-bottom: 35px;
+        }
+
+        .notification {
+
+            padding: 15px;
+
+            border-radius: 15px;
+
+            margin-bottom: 15px;
+
+            background: rgba(255, 255, 255, 0.05);
+
+            border-left: 4px solid #38bdf8;
+        }
+
+        .notification.alert {
+
+            border-left: 4px solid #f87171;
+        }
+
+        .notification.warning {
+
+            border-left: 4px solid #facc15;
+        }
+
+        .notification.success {
+
+            border-left: 4px solid #4ade80;
         }
 
         /* =========================
@@ -62,57 +131,85 @@
         ========================= */
 
         .top-grid {
+
             display: grid;
+
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+
             gap: 25px;
+
             margin-bottom: 35px;
         }
 
         .card {
+
             background: rgba(255, 255, 255, 0.06);
+
             border: 1px solid rgba(255, 255, 255, 0.15);
+
             border-radius: 20px;
+
             padding: 25px;
+
             backdrop-filter: blur(12px);
+
             box-shadow: 0 0 25px rgba(0, 0, 0, 0.3);
+
             transition: 0.3s ease;
         }
 
         .card:hover {
+
             transform: translateY(-5px);
+
             box-shadow: 0 0 30px rgba(56, 189, 248, 0.3);
         }
 
         .card h3 {
+
             font-size: 15px;
+
             color: #cbd5e1;
+
             margin-bottom: 15px;
+
             text-transform: uppercase;
+
             letter-spacing: 1px;
         }
 
         .card-value {
+
             font-size: 34px;
+
             font-weight: 700;
         }
 
         .blue {
+
             color: #38bdf8;
+
             text-shadow: 0 0 15px #38bdf8;
         }
 
         .green {
+
             color: #4ade80;
+
             text-shadow: 0 0 15px #4ade80;
         }
 
         .purple {
+
             color: #c084fc;
+
             text-shadow: 0 0 15px #c084fc;
         }
 
         .red {
+
             color: #f87171;
+
             text-shadow: 0 0 15px #f87171;
         }
 
@@ -121,86 +218,94 @@
         ========================= */
 
         .chart-container {
+
             background: rgba(255, 255, 255, 0.05);
+
             border: 1px solid rgba(255, 255, 255, 0.15);
+
             border-radius: 25px;
+
             padding: 30px;
+
             backdrop-filter: blur(12px);
+
             margin-bottom: 35px;
         }
 
         .chart-title {
+
             font-size: 22px;
+
             margin-bottom: 20px;
+
             font-weight: 600;
         }
 
         canvas {
+
             width: 100% !important;
-            height: 450px !important;
+
+            height: 650px !important;
         }
 
         /* =========================
-           BOTTOM SECTION
+           LIVE FEED
         ========================= */
 
         .bottom-grid {
+
             display: grid;
-            grid-template-columns: 2fr 1fr;
+
+            grid-template-columns: 1fr;
+
             gap: 25px;
         }
 
-        .table-box,
-        .notification-box {
+        .table-box {
 
             background: rgba(255, 255, 255, 0.05);
+
             border: 1px solid rgba(255, 255, 255, 0.15);
+
             border-radius: 25px;
+
             padding: 25px;
+
             backdrop-filter: blur(12px);
         }
 
         .section-title {
+
             font-size: 22px;
+
             margin-bottom: 20px;
+
             font-weight: 600;
         }
 
         table {
+
             width: 100%;
+
             border-collapse: collapse;
         }
 
         table th {
+
             text-align: left;
+
             padding: 12px;
+
             color: #94a3b8;
+
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         table td {
+
             padding: 12px;
+
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .notification {
-            padding: 15px;
-            border-radius: 15px;
-            margin-bottom: 15px;
-            background: rgba(255, 255, 255, 0.05);
-            border-left: 4px solid #38bdf8;
-        }
-
-        .notification.alert {
-            border-left: 4px solid #f87171;
-        }
-
-        .notification.warning {
-            border-left: 4px solid #facc15;
-        }
-
-        .notification.success {
-            border-left: 4px solid #4ade80;
         }
 
         /* =========================
@@ -209,15 +314,13 @@
 
         @media(max-width:1000px) {
 
-            .bottom-grid {
-                grid-template-columns: 1fr;
-            }
-
             body {
+
                 padding: 20px;
             }
 
         }
+
     </style>
 
 </head>
@@ -235,6 +338,54 @@
         <p>
             Real-Time Monitoring • Blockchain • ZKP Verification
         </p>
+
+    </div>
+
+    <!-- =========================
+         SYSTEM NOTIFICATIONS
+    ========================= -->
+
+    <div class="notification-wrapper">
+
+        <div class="section-title">
+            System Notifications
+        </div>
+
+        <div class="notification success">
+            ✅ Blockchain Verified
+        </div>
+
+        <div class="notification success">
+            🔐 ZKP Proof Verified
+        </div>
+
+        <div class="notification">
+            📡 Sensor Connected
+        </div>
+
+        {% if "HIGH" in temperature_alert %}
+
+        <div class="notification alert">
+            🚨 High Temperature Detected
+        </div>
+
+        {% endif %}
+
+        {% if "LOW" in temperature_alert %}
+
+        <div class="notification warning">
+            ❄ Low Temperature Detected
+        </div>
+
+        {% endif %}
+
+        {% if "OFFLINE" in sensor_status %}
+
+        <div class="notification alert">
+            ❌ Sensor Offline
+        </div>
+
+        {% endif %}
 
     </div>
 
@@ -280,7 +431,7 @@
 
         </div>
 
-        <!-- ZKP -->
+        <!-- Temperature Alert -->
 
         <div class="card">
 
@@ -311,7 +462,7 @@
     </div>
 
     <!-- =========================
-         CHART
+         TEMPERATURE CHART
     ========================= -->
 
     <div class="chart-container">
@@ -325,12 +476,10 @@
     </div>
 
     <!-- =========================
-         BOTTOM SECTION
+         LIVE FEED
     ========================= -->
 
     <div class="bottom-grid">
-
-        <!-- Live Feed -->
 
         <div class="table-box">
 
@@ -344,8 +493,13 @@
 
                     <tr>
 
+                        <th>Sensor</th>
+
                         <th>Timestamp</th>
+
                         <th>Temperature</th>
+
+                        <th>Integrity</th>
 
                     </tr>
 
@@ -358,11 +512,19 @@
                     <tr>
 
                         <td>
+                            {{ sensor_names[loop.index0] }}
+                        </td>
+
+                        <td>
                             {{ timestamps[loop.index0] }}
                         </td>
 
                         <td>
                             {{ temp }} °C
+                        </td>
+
+                        <td>
+                            {{ integrity_list[loop.index0] }}
                         </td>
 
                     </tr>
@@ -375,52 +537,6 @@
 
         </div>
 
-        <!-- Notifications -->
-
-        <div class="notification-box">
-
-            <div class="section-title">
-                System Notifications
-            </div>
-
-            <div class="notification success">
-                ✅ Blockchain Verified
-            </div>
-
-            <div class="notification success">
-                🔐 ZKP Proof Verified
-            </div>
-
-            <div class="notification">
-                📡 Sensor Connected
-            </div>
-
-            {% if "HIGH" in temperature_alert %}
-
-            <div class="notification alert">
-                🚨 High Temperature Detected
-            </div>
-
-            {% endif %}
-
-            {% if "LOW" in temperature_alert %}
-
-            <div class="notification warning">
-                ❄ Low Temperature Detected
-            </div>
-
-            {% endif %}
-
-            {% if "OFFLINE" in sensor_status %}
-
-            <div class="notification alert">
-                ❌ Sensor Offline
-            </div>
-
-            {% endif %}
-
-        </div>
-
     </div>
 
     <!-- =========================
@@ -429,12 +545,21 @@
 
     <script>
 
-        const temps = {{ temperatures | tojson }};
-        const times = {{ timestamps | tojson }};
+        const temps = {{ temperatures | tojson }}.reverse();
+
+        const rawTimes = {{ timestamps | tojson }}.reverse();
+
+        const times = rawTimes.map(t => {
+
+            const date = new Date(t);
+
+            return date.toLocaleTimeString();
+
+        });
 
         const ctx = document.getElementById('tempChart');
 
-        new Chart(ctx, {
+        const chart = new Chart(ctx, {
 
             type: 'line',
 
@@ -446,27 +571,41 @@
 
                     {
                         label: 'Temperature (°C)',
+
                         data: temps,
-                        borderColor: '#38bdf8',
+
+                        borderColor: '#00a6ff',
+
                         backgroundColor: '#38bdf8',
+
                         tension: 0.4,
+
                         pointRadius: 5,
+
                         pointHoverRadius: 8
                     },
 
                     {
                         label: 'High Temp Threshold',
+
                         data: Array(times.length).fill(75),
-                        borderColor: '#f87171',
-                        borderDash: [8, 8],
+
+                        borderColor: '#ff0000',
+
+                        borderDash: [16, 8],
+
                         pointRadius: 0
                     },
 
                     {
                         label: 'Low Temp Threshold',
+
                         data: Array(times.length).fill(30),
-                        borderColor: '#facc15',
-                        borderDash: [8, 8],
+
+                        borderColor: '#fff300',
+
+                        borderDash: [16, 8],
+
                         pointRadius: 0
                     }
 
@@ -481,40 +620,52 @@
                 plugins: {
 
                     legend: {
+
                         labels: {
-                            color: 'white'
+
+                            color: 'white',
+
+                            usePointStyle: true,
+
+                            pointStyle: 'line',
                         }
                     }
-
                 },
 
                 scales: {
 
                     x: {
+
                         ticks: {
+
                             color: 'white'
                         },
+
                         grid: {
+
                             color: 'rgba(255,255,255,0.08)'
                         }
                     },
 
                     y: {
+
                         ticks: {
+
                             color: 'white'
                         },
+
                         grid: {
+
                             color: 'rgba(255,255,255,0.08)'
                         }
                     }
-
                 }
-
             }
 
         });
 
         // Auto refresh every 5 sec
+
         setTimeout(() => {
 
             location.reload();

@@ -55,7 +55,7 @@ while True:
 
         "device_id": "sensor_001",
 
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
 
         "temperature": generate_temperature()
 

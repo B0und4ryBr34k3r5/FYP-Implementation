@@ -312,9 +312,11 @@ def DigitalTwin():
     # TEMPERATURE + TIMESTAMP
     # =========================
 
-    temperatures = [d.get("temperature", 0) for d in data][::-1]
+    temperatures = [d.get("temperature", 0) for d in data]
 
-    timestamps = [d.get("timestamp", "") for d in data][::-1]
+    timestamps = [d.get("timestamp", "") for d in data]
+
+    sensor_names = [d.get("device_id", "Unknown") for d in data]
 
     latest_temp = (
         data[0].get("temperature", "No Data")
@@ -430,7 +432,9 @@ def DigitalTwin():
         latest_temp=latest_temp,
         integrity_status=latest_integrity,
         sensor_status=sensor_status,
-        temperature_alert=temperature_alert
+        temperature_alert=temperature_alert,
+        integrity_list=integrity_status,
+        sensor_names=sensor_names,
 
     )
 
