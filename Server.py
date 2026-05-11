@@ -28,8 +28,27 @@ collection = db["sensor_data"]
 
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:8545"))
 
-# IoTData Contract
-contract_address = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+# =========================
+# LOAD CONTRACT ADDRESSES
+# =========================
+
+with open("Blockchain/addresses.json") as f:
+
+    addresses = json.load(f)
+
+contract_address = addresses["iotdata"]
+
+verifier_address = addresses["verifier"]
+
+print("\n===== CONTRACT ADDRESSES =====")
+
+print("IoTData Contract:")
+print(contract_address)
+
+print("\nVerifier Contract:")
+print(verifier_address)
+
+print("==============================\n")
 
 abi = [
     {
@@ -60,8 +79,6 @@ with open("Blockchain/artifacts/contracts/Verifier.sol/Groth16Verifier.json") as
     verifier_json = json.load(f)
 
 verifier_abi = verifier_json["abi"]
-
-verifier_address = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 
 verifier_contract = w3.eth.contract(
     address=verifier_address,
