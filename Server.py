@@ -225,75 +225,118 @@ def receive_data():
             print("❌ VERIFY ERROR:", e)
 
     # =========================
-    # MONGODB
-    # =========================
-
-    collection.insert_one({
-
-        "device_id": data["device_id"],
-        "timestamp": data["timestamp"],
-        "temperature": data["temperature"],
-        "hash": data_hash,
-        "zkp_verified": verified,
-        "zkp_proof": proof,
-        "public_signals": public
-
-    })
-
-    # =========================
-    # STORE ON BLOCKCHAIN
+    # ONLY VERIFIED DATA ALLOWED
     # =========================
 
     if verified:
 
-        tx = contract.functions.storeData(
-            data["device_id"],
-            data["timestamp"],
-            int(data["temperature"])
-        ).transact({"from": account})
+        try:
 
-        receipt = w3.eth.wait_for_transaction_receipt(tx)
+            # =========================
+            # STORE ON BLOCKCHAIN
+            # =========================
 
-        print("✅ Stored on Blockchain")
+            tx = contract.functions.storeData(
+                data["device_id"],
+                data["timestamp"],
+                int(data["temperature"])
+            ).transact({"from": account})
+
+            receipt = w3.eth.wait_for_transaction_receipt(tx)
+
+            print("✅ Stored on Blockchain")
+
+            # =========================
+            # STORE IN MONGODB
+            # =========================
+
+            collection.insert_one({
+
+                "device_id": data["device_id"],
+                "timestamp": data["timestamp"],
+                "temperature": data["temperature"],
+                "hash": data_hash,
+                "zkp_verified": verified,
+                "zkp_proof": proof,
+                "public_signals": public
+
+            })
+
+            print("✅ Stored in MongoDB")
+
+            # =========================
+            # OUTPUT
+            # =========================
+
+            print("\n" + "="*60)
+
+            print("📡 VERIFIED IoT DATA RECEIVED")
+
+            print("="*60)
+
+            print(f"Device ID           : {data['device_id']}")
+            print(f"Time                : {data['timestamp']}")
+            print(f"Temperature         : {data['temperature']}°C")
+
+            print("\n🔐 HASH")
+            print(f"SHA-256             : {data_hash}")
+
+            print("\n🧠 ZKP")
+            print(f"Proof Generated     : {'YES' if proof else 'NO'}")
+            print(f"Proof Verified      : {verified}")
+
+            print("\n⛓ BLOCKCHAIN")
+            print(f"Tx Hash             : {tx.hex()}")
+            print(f"Block Number        : {receipt.blockNumber}")
+
+            print("\n🗄 DATABASE")
+            print("Stored in MongoDB")
+
+            print("="*60 + "\n")
+
+            return jsonify({
+                "status": "stored",
+                "zkp_verified": verified
+            })
+
+        except Exception as e:
+
+            print("❌ BLOCKCHAIN ERROR:", e)
+
+            return jsonify({
+                "status": "blockchain_failed",
+                "zkp_verified": False
+            })
 
     else:
 
-        print("❌ Invalid Proof - Blockchain Rejected")
+        # =========================
+        # ALERT ATTACK
+        # =========================
 
-    # =========================
-    # OUTPUT
-    # =========================
+        print("\n" + "="*60)
 
-    print("\n" + "="*60)
+        print("🚨 ALERT ATTACK DETECTED")
 
-    print("📡 DATA RECEIVED FROM IoT")
+        print("="*60)
 
-    print("="*60)
+        print(f"Device ID           : {data['device_id']}")
+        print(f"Time                : {data['timestamp']}")
+        print(f"Temperature         : {data['temperature']}°C")
 
-    print(f"Device ID           : {data['device_id']}")
-    print(f"Time                : {data['timestamp']}")
-    print(f"Temperature         : {data['temperature']}°C")
+        print("\n❌ INVALID ZKP PROOF")
 
-    print("\n🔐 HASH")
-    print(f"SHA-256             : {data_hash}")
+        print("⛔ Data Rejected")
+        print("⛔ Not Stored in Blockchain")
+        print("⛔ Not Stored in MongoDB")
+        print("⛔ Not Displayed in Dashboard")
 
-    print("\n🧠 ZKP")
-    print(f"Proof Generated     : {'YES' if proof else 'NO'}")
-    print(f"Proof Verified      : {verified}")
+        print("="*60 + "\n")
 
-    print("\n⛓ BLOCKCHAIN")
-    print(f"Tx Hash             : {tx.hex()}")
-    print(f"Block Number        : {receipt.blockNumber}")
-
-    print("\n🗄 DATABASE")
-    print("Stored in MongoDB")
-
-    print("="*60 + "\n")
-
-    return jsonify({
-        "status": "stored",
-        "zkp_verified": verified
-    })
+        return jsonify({
+            "status": "rejected",
+            "zkp_verified": False
+        })
 
 # =========================
 # DIGITAL TWIN
