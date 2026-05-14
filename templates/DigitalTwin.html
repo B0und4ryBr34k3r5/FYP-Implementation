@@ -16,7 +16,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-
         * {
             margin: 0;
             padding: 0;
@@ -375,7 +374,6 @@
             }
 
         }
-
     </style>
 
 </head>
@@ -400,7 +398,7 @@
          SYSTEM NOTIFICATIONS
     ========================= -->
 
-    <div class="notification-wrapper">
+    <div class="notification-wrapper" id="notification-wrapper">
 
         <div class="section-title">
             System Notifications
@@ -408,7 +406,8 @@
 
         {% if tampered_data|length > 0 %}
 
-        <div id="tampered-notification-banner" class="notification alert" style="background: rgba(248, 113, 113, 0.2); border-left: 6px solid #ef4444; color: #fecaca; font-weight: bold; text-transform: uppercase; font-size: 1.1em; letter-spacing: 1px;">
+        <div id="tampered-notification-banner" class="notification alert"
+            style="background: rgba(248, 113, 113, 0.2); border-left: 6px solid #ef4444; color: #fecaca; font-weight: bold; text-transform: uppercase; font-size: 1.1em; letter-spacing: 1px;">
             🚨 CRITICAL WARNING: DATABASE TAMPERING DETECTED!
         </div>
 
@@ -444,6 +443,7 @@
          TAMPERED DATA CARD
     ========================= -->
 
+    <div id="tampered-card-container">
     {% if tampered_data|length > 0 %}
     <div id="tampered-alert-card" class="tampered-alert-card">
         <h2>🚨 SECURITY INCIDENT DETECTED 🚨</h2>
@@ -458,77 +458,44 @@
         <button onclick="dismissTamperedAlert()">Acknowledge & Dismiss</button>
     </div>
     {% endif %}
+    </div>
 
     <!-- =========================
          TOP STATUS CARDS
     ========================= -->
 
     <div class="top-grid">
-
         <!-- Integrity -->
-
         <div class="card">
-
             <h3>Integrity Status</h3>
-
-            <div class="card-value green">
+            <div id="val-integrity" class="card-value {% if 'VALID' in integrity_status %}green{% else %}red{% endif %}">
                 {{ integrity_status }}
             </div>
-
         </div>
 
         <!-- Sensor -->
-
         <div class="card">
-
             <h3>Sensor Status</h3>
-
-            <div class="card-value purple">
+            <div id="val-sensor" class="card-value {% if 'ONLINE' in sensor_status %}purple{% else %}red{% endif %}">
                 {{ sensor_status }}
             </div>
-
         </div>
 
         <!-- Temperature -->
-
         <div class="card">
-
             <h3>Current Temperature</h3>
-
-            <div class="card-value blue">
+            <div id="val-temp" class="card-value blue">
                 {{ latest_temp }} °C
             </div>
-
         </div>
 
         <!-- Temperature Alert -->
-
         <div class="card">
-
             <h3>Temperature Alert</h3>
-
-            {% if "HIGH" in temperature_alert %}
-
-            <div class="card-value red">
+            <div id="val-alert" class="card-value {% if 'HIGH' in temperature_alert %}red{% elif 'LOW' in temperature_alert %}blue{% else %}green{% endif %}">
                 {{ temperature_alert }}
             </div>
-
-            {% elif "LOW" in temperature_alert %}
-
-            <div class="card-value blue">
-                {{ temperature_alert }}
-            </div>
-
-            {% else %}
-
-            <div class="card-value green">
-                {{ temperature_alert }}
-            </div>
-
-            {% endif %}
-
         </div>
-
     </div>
 
     <!-- =========================
@@ -575,7 +542,7 @@
 
                 </thead>
 
-                <tbody>
+                <tbody id="live-feed-body">
 
                     {% for temp in temperatures %}
 
@@ -610,9 +577,10 @@
     </div>
 
     <!-- =========================
-         CHART JS
+         CHART JS & SOCKET.IO
     ========================= -->
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script>
 
         const temps = {{ temperatures | tojson }}.reverse();
@@ -684,7 +652,7 @@
             },
 
             options: {
-
+                animation: false,
                 responsive: true,
 
                 plugins: {
@@ -731,64 +699,165 @@
                     }
                 }
             }
-
         });
 
-        // Auto refresh every 5 sec
+        // =========================
+        // WEBSOCKET INTEGRATION
+        // =========================
 
-        setTimeout(() => {
+        const socket = io();
 
-            location.reload();
+        socket.on('update_data', function(msg) {
+            
+            // 1. Update Top Cards
+            let intEl = document.getElementById('val-integrity');
+            intEl.innerText = msg.integrity_status;
+            intEl.className = msg.integrity_status.includes("VALID") ? "card-value green" : "card-value red";
 
-        }, 5000);
+            let sensEl = document.getElementById('val-sensor');
+            sensEl.innerText = msg.sensor_status;
+            sensEl.className = msg.sensor_status.includes("ONLINE") ? "card-value purple" : "card-value red";
 
-        // Handle Tampered Card & localStorage Dismissal
-        const tamperedCard = document.getElementById('tampered-alert-card');
-        const tamperedBanner = document.getElementById('tampered-notification-banner');
+            document.getElementById('val-temp').innerText = msg.latest_temp + " °C";
+
+            let altEl = document.getElementById('val-alert');
+            altEl.innerText = msg.temperature_alert;
+            if(msg.temperature_alert.includes("HIGH")) altEl.className = "card-value red";
+            else if(msg.temperature_alert.includes("LOW")) altEl.className = "card-value blue";
+            else altEl.className = "card-value green";
+
+            // 2. Update Chart
+            // Create copies using [...] before reversing, so we don't mutate the original array for the table!
+            const chartTimes = [...msg.timestamps].reverse().map(t => new Date(t).toLocaleTimeString());
+            chart.data.labels = chartTimes;
+            chart.data.datasets[0].data = [...msg.temperatures].reverse();
+            chart.data.datasets[1].data = Array(chartTimes.length).fill(75);
+            chart.data.datasets[2].data = Array(chartTimes.length).fill(30);
+            chart.update();
+
+            // 3. Update Table
+            let tbodyHTML = "";
+            for(let i=0; i<msg.temperatures.length; i++) {
+                tbodyHTML += `<tr>
+                    <td>${msg.sensor_names[i]}</td>
+                    <td>${msg.timestamps[i]}</td>
+                    <td>${msg.temperatures[i]} °C</td>
+                    <td>${msg.integrity_list[i]}</td>
+                </tr>`;
+            }
+            document.getElementById('live-feed-body').innerHTML = tbodyHTML;
+
+            // 4. Update Notifications
+            let notifWrapper = document.getElementById('notification-wrapper');
+            if(notifWrapper) {
+                let notifHTML = `<div class="section-title">System Notifications</div>`;
+                if (msg.tampered_data.length > 0) {
+                    notifHTML += `<div id="tampered-notification-banner" class="notification alert" style="background: rgba(248, 113, 113, 0.2); border-left: 6px solid #ef4444; color: #fecaca; font-weight: bold; text-transform: uppercase; font-size: 1.1em; letter-spacing: 1px;">
+                        🚨 CRITICAL WARNING: DATABASE TAMPERING DETECTED!
+                    </div>`;
+                }
+                if (msg.temperature_alert.includes("HIGH")) {
+                    notifHTML += `<div class="notification alert">🚨 High Temperature Detected</div>`;
+                }
+                if (msg.temperature_alert.includes("LOW")) {
+                    notifHTML += `<div class="notification warning">❄ Low Temperature Detected</div>`;
+                }
+                if (msg.sensor_status.includes("OFFLINE")) {
+                    notifHTML += `<div class="notification alert">❌ Sensor Offline</div>`;
+                }
+                notifWrapper.innerHTML = notifHTML;
+            }
+
+            // 5. Update Tampered Alert Card
+            let tamperedContainer = document.getElementById('tampered-card-container');
+            if (tamperedContainer) {
+                if (msg.tampered_data.length > 0) {
+                    let tHTML = `<div id="tampered-alert-card" class="tampered-alert-card" style="display:block;">
+                        <h2>🚨 SECURITY INCIDENT DETECTED 🚨</h2>
+                        <p>The following records have failed blockchain cross-verification:</p>
+                        <ul>`;
+                    msg.tampered_data.forEach(rec => {
+                        tHTML += `<li class="tampered-item" data-id="${rec.sensor}_${rec.timestamp}">
+                            Sensor: ${rec.sensor} | Time: ${rec.timestamp} | Temp: ${rec.temperature}°C
+                        </li>`;
+                    });
+                    tHTML += `</ul><button onclick="dismissTamperedAlert()">Acknowledge & Dismiss</button></div>`;
+                    tamperedContainer.innerHTML = tHTML;
+                } else {
+                    tamperedContainer.innerHTML = "";
+                }
+            }
+
+            // 6. Run Dismissal & Popup Logic
+            runDismissalLogic();
+        });
+
+        // =========================
+        // DISMISSAL & POPUP LOGIC
+        // =========================
+
         let hasActiveTampering = false;
 
-        if (tamperedCard) {
-            let allDismissed = true;
-            const items = document.querySelectorAll('.tampered-item');
-            
-            items.forEach(item => {
-                const id = item.getAttribute('data-id');
-                if (localStorage.getItem('dismissed_' + id) !== 'true') {
-                    allDismissed = false;
-                    hasActiveTampering = true;
-                } else {
-                    item.style.display = 'none'; // Hide individually dismissed items
-                }
-            });
+        function runDismissalLogic() {
+            const tamperedCard = document.getElementById('tampered-alert-card');
+            const tamperedBanner = document.getElementById('tampered-notification-banner');
+            hasActiveTampering = false;
 
-            if (!allDismissed) {
-                tamperedCard.style.display = 'block';
+            if (tamperedCard) {
+                let allDismissed = true;
+                const items = document.querySelectorAll('.tampered-item');
+                
+                items.forEach(item => {
+                    const id = item.getAttribute('data-id');
+                    if (localStorage.getItem('dismissed_' + id) !== 'true') {
+                        allDismissed = false;
+                        hasActiveTampering = true;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                if (!allDismissed) {
+                    tamperedCard.style.display = 'block';
+                } else {
+                    tamperedCard.style.display = 'none';
+                    if (tamperedBanner) tamperedBanner.style.display = 'none';
+                }
+
+                // Trigger immediate browser pop-up warning
+                if (hasActiveTampering) {
+                    // Check session storage so we don't spam popups constantly
+                    if (sessionStorage.getItem('popup_shown') !== 'true') {
+                        setTimeout(() => {
+                            alert("🚨 CRITICAL SECURITY ALERT 🚨\n\nDatabase Tampering Detected!\n\nThe system has identified unauthorized changes to the sensor data. The database records do not match the immutable blockchain records.");
+                            sessionStorage.setItem('popup_shown', 'true');
+                        }, 500);
+                    }
+                } else {
+                    sessionStorage.removeItem('popup_shown');
+                }
             } else {
-                if(tamperedBanner) tamperedBanner.style.display = 'none';
+                sessionStorage.removeItem('popup_shown');
             }
         }
 
         function dismissTamperedAlert() {
             const items = document.querySelectorAll('.tampered-item');
             items.forEach(item => {
-                if(item.style.display !== 'none') {
+                if (item.style.display !== 'none') {
                     const id = item.getAttribute('data-id');
                     localStorage.setItem('dismissed_' + id, 'true');
                 }
             });
-            document.getElementById('tampered-alert-card').style.display = 'none';
-            if(tamperedBanner) tamperedBanner.style.display = 'none';
+            const card = document.getElementById('tampered-alert-card');
+            const banner = document.getElementById('tampered-notification-banner');
+            if(card) card.style.display = 'none';
+            if(banner) banner.style.display = 'none';
             hasActiveTampering = false;
         }
 
-        // Trigger immediate browser pop-up warning
-        if (tamperedCard) {
-            setTimeout(() => {
-                if (hasActiveTampering) {
-                    alert("🚨 CRITICAL SECURITY ALERT 🚨\n\nDatabase Tampering Detected!\n\nThe system has identified unauthorized changes to the sensor data. The database records do not match the immutable blockchain records.");
-                }
-            }, 500);
-        }
+        // Run once on initial load
+        runDismissalLogic();
 
     </script>
 

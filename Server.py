@@ -4,10 +4,13 @@ import subprocess
 import json
 
 from flask import Flask, request, jsonify, render_template
+from flask_socketio import SocketIO
 from web3 import Web3
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from datetime import datetime
+import threading
+import time
 
 # =========================
 # INIT
@@ -16,6 +19,7 @@ from datetime import datetime
 load_dotenv()
 
 app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # MongoDB
 client = MongoClient(os.getenv("MONGO_URI"))
@@ -337,6 +341,10 @@ def receive_data():
 
 @app.route("/DigitalTwin")
 def DigitalTwin():
+    dashboard_data = get_dashboard_data()
+    return render_template("DigitalTwin.html", **dashboard_data)
+
+def get_dashboard_data():
 
     # =========================
     # GET DATA FROM MONGODB
@@ -483,21 +491,33 @@ def DigitalTwin():
 
             temperature_alert = "SENSOR ERROR ⚠"
 
-    return render_template(
+    return {
+        "temperatures": temperatures,
+        "timestamps": timestamps,
+        "latest_temp": latest_temp,
+        "integrity_status": latest_integrity,
+        "sensor_status": sensor_status,
+        "temperature_alert": temperature_alert,
+        "integrity_list": integrity_status,
+        "sensor_names": sensor_names,
+        "tampered_data": tampered_data,
+    }
 
-        "DigitalTwin.html",
+# =========================
+# WEBSOCKET BACKGROUND THREAD
+# =========================
 
-        temperatures=temperatures,
-        timestamps=timestamps,
-        latest_temp=latest_temp,
-        integrity_status=latest_integrity,
-        sensor_status=sensor_status,
-        temperature_alert=temperature_alert,
-        integrity_list=integrity_status,
-        sensor_names=sensor_names,
-        tampered_data=tampered_data,
+def background_thread():
+    while True:
+        socketio.sleep(1)
+        try:
+            dashboard_data = get_dashboard_data()
+            socketio.emit('update_data', dashboard_data)
+        except Exception as e:
+            print("WebSocket thread error:", e)
 
-    )
+# Start background thread
+socketio.start_background_task(target=background_thread)
 
 # =========================
 # RUN SERVER
@@ -505,6 +525,6 @@ def DigitalTwin():
 
 if __name__ == "__main__":
 
-    print("\n🚀 Starting Server with ZKP Verification...\n")
+    print("\n🚀 Starting Server with WebSocket & ZKP Verification...\n")
 
-    app.run(debug=True)
+    socketio.run(app, debug=True)

@@ -76,4 +76,4 @@ while True:
 
         print("❌ Error:", e)
 
-    time.sleep(5)
+    time.sleep(10)
