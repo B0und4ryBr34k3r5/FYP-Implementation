@@ -50,19 +50,10 @@ print(verifier_address)
 
 print("==============================\n")
 
-abi = [
-    {
-        "inputs": [
-            {"internalType": "string", "name": "_deviceId", "type": "string"},
-            {"internalType": "string", "name": "_timestamp", "type": "string"},
-            {"internalType": "int256", "name": "_temperature", "type": "int256"}
-        ],
-        "name": "storeData",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    }
-]
+with open("Blockchain/artifacts/contracts/IoTData.sol/IoTData.json") as f:
+    iot_json = json.load(f)
+
+abi = iot_json["abi"]
 
 account = w3.eth.accounts[0]
 
@@ -239,7 +230,9 @@ def receive_data():
             tx = contract.functions.storeData(
                 data["device_id"],
                 data["timestamp"],
-                int(data["temperature"])
+                int(data["temperature"]),
+                data_hash,
+                json.dumps(proof)
             ).transact({"from": account})
 
             receipt = w3.eth.wait_for_transaction_receipt(tx)
@@ -367,38 +360,62 @@ def DigitalTwin():
     )
 
     # =========================
-    # INTEGRITY CHECK
+    # GET DATA FROM BLOCKCHAIN
+    # =========================
+
+    blockchain_hashes = {}
+    try:
+        data_count = contract.functions.getDataCount().call()
+        start_index = max(0, data_count - 50)
+        for i in range(start_index, data_count):
+            bc_device_id, bc_timestamp, bc_temp, bc_hash, bc_proof = contract.functions.getData(i).call()
+            blockchain_hashes[f"{bc_device_id}_{bc_timestamp}"] = bc_hash
+    except Exception as e:
+        print("❌ FAILED TO FETCH BLOCKCHAIN DATA:", e)
+
+    # =========================
+    # CROSS-VERIFICATION (BLOCKCHAIN VS DB)
     # =========================
 
     integrity_status = []
+    tampered_data = []
 
     for d in data:
 
-        original_hash = d.get("hash", "")
+        device_id = d.get("device_id")
+        timestamp = d.get("timestamp")
 
-        # Recalculate hash
+        # Get the corresponding hash stored on the blockchain
+        blockchain_hash = blockchain_hashes.get(f"{device_id}_{timestamp}")
+
+        # Recalculate hash from database data
         recalculated_hash = hashlib.sha256(
 
             str({
-                "device_id": d.get("device_id"),
-                "timestamp": d.get("timestamp"),
+                "device_id": device_id,
+                "timestamp": timestamp,
                 "temperature": d.get("temperature")
             }).encode()
 
         ).hexdigest()
 
         # Compare hash
-        if original_hash == recalculated_hash:
+        if blockchain_hash and blockchain_hash == recalculated_hash:
 
             integrity_status.append("VALID ✅")
 
         else:
 
             integrity_status.append("TAMPERED ❌")
+            tampered_data.append({
+                "sensor": device_id,
+                "timestamp": timestamp,
+                "temperature": d.get("temperature")
+            })
 
     # Latest integrity status
     latest_integrity = (
-        integrity_status[-1]
+        integrity_status[0]
         if integrity_status else "UNKNOWN"
     )
 
@@ -478,6 +495,7 @@ def DigitalTwin():
         temperature_alert=temperature_alert,
         integrity_list=integrity_status,
         sensor_names=sensor_names,
+        tampered_data=tampered_data,
 
     )
 

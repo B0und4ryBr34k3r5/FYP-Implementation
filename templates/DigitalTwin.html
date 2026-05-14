@@ -127,6 +127,61 @@
         }
 
         /* =========================
+           TAMPERED ALERT MODAL
+        ========================= */
+
+        .tampered-alert-card {
+            background: rgba(220, 38, 38, 0.9);
+            border: 2px solid #ef4444;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 35px;
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
+            display: none;
+        }
+
+        .tampered-alert-card h2 {
+            color: white;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+
+        .tampered-alert-card p {
+            color: #fee2e2;
+            margin-bottom: 20px;
+        }
+
+        .tampered-alert-card ul {
+            list-style-type: none;
+            margin-bottom: 20px;
+        }
+
+        .tampered-alert-card li {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px 15px;
+            margin-bottom: 5px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 16px;
+        }
+
+        .tampered-alert-card button {
+            background: white;
+            color: #dc2626;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .tampered-alert-card button:hover {
+            background: #fecaca;
+        }
+
+        /* =========================
            TOP CARDS
         ========================= */
 
@@ -351,17 +406,13 @@
             System Notifications
         </div>
 
-        <div class="notification success">
-            ✅ Blockchain Verified
+        {% if tampered_data|length > 0 %}
+
+        <div id="tampered-notification-banner" class="notification alert" style="background: rgba(248, 113, 113, 0.2); border-left: 6px solid #ef4444; color: #fecaca; font-weight: bold; text-transform: uppercase; font-size: 1.1em; letter-spacing: 1px;">
+            🚨 CRITICAL WARNING: DATABASE TAMPERING DETECTED!
         </div>
 
-        <div class="notification success">
-            🔐 ZKP Proof Verified
-        </div>
-
-        <div class="notification">
-            📡 Sensor Connected
-        </div>
+        {% endif %}
 
         {% if "HIGH" in temperature_alert %}
 
@@ -388,6 +439,25 @@
         {% endif %}
 
     </div>
+
+    <!-- =========================
+         TAMPERED DATA CARD
+    ========================= -->
+
+    {% if tampered_data|length > 0 %}
+    <div id="tampered-alert-card" class="tampered-alert-card">
+        <h2>🚨 SECURITY INCIDENT DETECTED 🚨</h2>
+        <p>The following records have failed blockchain cross-verification:</p>
+        <ul>
+            {% for rec in tampered_data %}
+            <li class="tampered-item" data-id="{{ rec.sensor }}_{{ rec.timestamp }}">
+                Sensor: {{ rec.sensor }} | Time: {{ rec.timestamp }} | Temp: {{ rec.temperature }}°C
+            </li>
+            {% endfor %}
+        </ul>
+        <button onclick="dismissTamperedAlert()">Acknowledge & Dismiss</button>
+    </div>
+    {% endif %}
 
     <!-- =========================
          TOP STATUS CARDS
@@ -671,6 +741,54 @@
             location.reload();
 
         }, 5000);
+
+        // Handle Tampered Card & localStorage Dismissal
+        const tamperedCard = document.getElementById('tampered-alert-card');
+        const tamperedBanner = document.getElementById('tampered-notification-banner');
+        let hasActiveTampering = false;
+
+        if (tamperedCard) {
+            let allDismissed = true;
+            const items = document.querySelectorAll('.tampered-item');
+            
+            items.forEach(item => {
+                const id = item.getAttribute('data-id');
+                if (localStorage.getItem('dismissed_' + id) !== 'true') {
+                    allDismissed = false;
+                    hasActiveTampering = true;
+                } else {
+                    item.style.display = 'none'; // Hide individually dismissed items
+                }
+            });
+
+            if (!allDismissed) {
+                tamperedCard.style.display = 'block';
+            } else {
+                if(tamperedBanner) tamperedBanner.style.display = 'none';
+            }
+        }
+
+        function dismissTamperedAlert() {
+            const items = document.querySelectorAll('.tampered-item');
+            items.forEach(item => {
+                if(item.style.display !== 'none') {
+                    const id = item.getAttribute('data-id');
+                    localStorage.setItem('dismissed_' + id, 'true');
+                }
+            });
+            document.getElementById('tampered-alert-card').style.display = 'none';
+            if(tamperedBanner) tamperedBanner.style.display = 'none';
+            hasActiveTampering = false;
+        }
+
+        // Trigger immediate browser pop-up warning
+        if (tamperedCard) {
+            setTimeout(() => {
+                if (hasActiveTampering) {
+                    alert("🚨 CRITICAL SECURITY ALERT 🚨\n\nDatabase Tampering Detected!\n\nThe system has identified unauthorized changes to the sensor data. The database records do not match the immutable blockchain records.");
+                }
+            }, 500);
+        }
 
     </script>
 

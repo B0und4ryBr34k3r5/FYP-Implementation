@@ -7,6 +7,8 @@ contract IoTData {
         string deviceId;
         string timestamp;
         int temperature;
+        string dataHash;
+        string zkProof;
     }
 
     SensorData[] public dataRecords;
@@ -14,22 +16,28 @@ contract IoTData {
     event DataStored(
         string deviceId,
         string timestamp,
-        int temperature
+        int temperature,
+        string dataHash,
+        string zkProof
     );
 
     function storeData(
         string memory _deviceId,
         string memory _timestamp,
-        int _temperature
+        int _temperature,
+        string memory _dataHash,
+        string memory _zkProof
     ) public {
 
         dataRecords.push(SensorData({
             deviceId: _deviceId,
             timestamp: _timestamp,
-            temperature: _temperature
+            temperature: _temperature,
+            dataHash: _dataHash,
+            zkProof: _zkProof
         }));
 
-        emit DataStored(_deviceId, _timestamp, _temperature);
+        emit DataStored(_deviceId, _timestamp, _temperature, _dataHash, _zkProof);
     }
 
     function getDataCount() public view returns (uint) {
@@ -39,9 +47,11 @@ contract IoTData {
     function getData(uint index) public view returns (
         string memory,
         string memory,
-        int
+        int,
+        string memory,
+        string memory
     ) {
         SensorData memory d = dataRecords[index];
-        return (d.deviceId, d.timestamp, d.temperature);
+        return (d.deviceId, d.timestamp, d.temperature, d.dataHash, d.zkProof);
     }
 }
