@@ -408,7 +408,7 @@
 
         <div id="tampered-notification-banner" class="notification alert"
             style="background: rgba(248, 113, 113, 0.2); border-left: 6px solid #ef4444; color: #fecaca; font-weight: bold; text-transform: uppercase; font-size: 1.1em; letter-spacing: 1px;">
-            🚨 CRITICAL WARNING: DATABASE TAMPERING DETECTED!
+            CRITICAL WARNING: DATABASE TAMPERING DETECTED!
         </div>
 
         {% endif %}
@@ -416,7 +416,7 @@
         {% if "HIGH" in temperature_alert %}
 
         <div class="notification alert">
-            🚨 High Temperature Detected
+            High Temperature Detected
         </div>
 
         {% endif %}
@@ -424,7 +424,7 @@
         {% if "LOW" in temperature_alert %}
 
         <div class="notification warning">
-            ❄ Low Temperature Detected
+            Low Temperature Detected
         </div>
 
         {% endif %}
@@ -432,7 +432,7 @@
         {% if "OFFLINE" in sensor_status %}
 
         <div class="notification alert">
-            ❌ Sensor Offline
+            Sensor Offline
         </div>
 
         {% endif %}
@@ -444,20 +444,20 @@
     ========================= -->
 
     <div id="tampered-card-container">
-    {% if tampered_data|length > 0 %}
-    <div id="tampered-alert-card" class="tampered-alert-card">
-        <h2>🚨 SECURITY INCIDENT DETECTED 🚨</h2>
-        <p>The following records have failed blockchain cross-verification:</p>
-        <ul>
-            {% for rec in tampered_data %}
-            <li class="tampered-item" data-id="{{ rec.sensor }}_{{ rec.timestamp }}">
-                Sensor: {{ rec.sensor }} | Time: {{ rec.timestamp }} | Temp: {{ rec.temperature }}°C
-            </li>
-            {% endfor %}
-        </ul>
-        <button onclick="dismissTamperedAlert()">Acknowledge & Dismiss</button>
-    </div>
-    {% endif %}
+        {% if tampered_data|length > 0 %}
+        <div id="tampered-alert-card" class="tampered-alert-card">
+            <h2>SECURITY INCIDENT DETECTED</h2>
+            <p>The following records have failed blockchain cross-verification:</p>
+            <ul>
+                {% for rec in tampered_data %}
+                <li class="tampered-item" data-id="{{ rec.sensor }}_{{ rec.timestamp }}">
+                    Sensor: {{ rec.sensor }} | Time: {{ rec.timestamp }} | Temp: {{ rec.temperature }}°C
+                </li>
+                {% endfor %}
+            </ul>
+            <button onclick="dismissTamperedAlert()">Acknowledge & Dismiss</button>
+        </div>
+        {% endif %}
     </div>
 
     <!-- =========================
@@ -468,7 +468,8 @@
         <!-- Integrity -->
         <div class="card">
             <h3>Integrity Status</h3>
-            <div id="val-integrity" class="card-value {% if 'VALID' in integrity_status %}green{% else %}red{% endif %}">
+            <div id="val-integrity"
+                class="card-value {% if 'VALID' in integrity_status %}green{% else %}red{% endif %}">
                 {{ integrity_status }}
             </div>
         </div>
@@ -492,7 +493,8 @@
         <!-- Temperature Alert -->
         <div class="card">
             <h3>Temperature Alert</h3>
-            <div id="val-alert" class="card-value {% if 'HIGH' in temperature_alert %}red{% elif 'LOW' in temperature_alert %}blue{% else %}green{% endif %}">
+            <div id="val-alert"
+                class="card-value {% if 'HIGH' in temperature_alert %}red{% elif 'LOW' in temperature_alert %}blue{% else %}green{% endif %}">
                 {{ temperature_alert }}
             </div>
         </div>
@@ -707,8 +709,8 @@
 
         const socket = io();
 
-        socket.on('update_data', function(msg) {
-            
+        socket.on('update_data', function (msg) {
+
             // 1. Update Top Cards
             let intEl = document.getElementById('val-integrity');
             intEl.innerText = msg.integrity_status;
@@ -722,8 +724,8 @@
 
             let altEl = document.getElementById('val-alert');
             altEl.innerText = msg.temperature_alert;
-            if(msg.temperature_alert.includes("HIGH")) altEl.className = "card-value red";
-            else if(msg.temperature_alert.includes("LOW")) altEl.className = "card-value blue";
+            if (msg.temperature_alert.includes("HIGH")) altEl.className = "card-value red";
+            else if (msg.temperature_alert.includes("LOW")) altEl.className = "card-value blue";
             else altEl.className = "card-value green";
 
             // 2. Update Chart
@@ -737,7 +739,7 @@
 
             // 3. Update Table
             let tbodyHTML = "";
-            for(let i=0; i<msg.temperatures.length; i++) {
+            for (let i = 0; i < msg.temperatures.length; i++) {
                 tbodyHTML += `<tr>
                     <td>${msg.sensor_names[i]}</td>
                     <td>${msg.timestamps[i]}</td>
@@ -749,21 +751,21 @@
 
             // 4. Update Notifications
             let notifWrapper = document.getElementById('notification-wrapper');
-            if(notifWrapper) {
+            if (notifWrapper) {
                 let notifHTML = `<div class="section-title">System Notifications</div>`;
                 if (msg.tampered_data.length > 0) {
                     notifHTML += `<div id="tampered-notification-banner" class="notification alert" style="background: rgba(248, 113, 113, 0.2); border-left: 6px solid #ef4444; color: #fecaca; font-weight: bold; text-transform: uppercase; font-size: 1.1em; letter-spacing: 1px;">
-                        🚨 CRITICAL WARNING: DATABASE TAMPERING DETECTED!
+                        CRITICAL WARNING: DATABASE TAMPERING DETECTED!
                     </div>`;
                 }
                 if (msg.temperature_alert.includes("HIGH")) {
-                    notifHTML += `<div class="notification alert">🚨 High Temperature Detected</div>`;
+                    notifHTML += `<div class="notification alert">High Temperature Detected</div>`;
                 }
                 if (msg.temperature_alert.includes("LOW")) {
-                    notifHTML += `<div class="notification warning">❄ Low Temperature Detected</div>`;
+                    notifHTML += `<div class="notification warning">Low Temperature Detected</div>`;
                 }
                 if (msg.sensor_status.includes("OFFLINE")) {
-                    notifHTML += `<div class="notification alert">❌ Sensor Offline</div>`;
+                    notifHTML += `<div class="notification alert">Sensor Offline</div>`;
                 }
                 notifWrapper.innerHTML = notifHTML;
             }
@@ -773,7 +775,7 @@
             if (tamperedContainer) {
                 if (msg.tampered_data.length > 0) {
                     let tHTML = `<div id="tampered-alert-card" class="tampered-alert-card" style="display:block;">
-                        <h2>🚨 SECURITY INCIDENT DETECTED 🚨</h2>
+                        <h2>SECURITY INCIDENT DETECTED</h2>
                         <p>The following records have failed blockchain cross-verification:</p>
                         <ul>`;
                     msg.tampered_data.forEach(rec => {
@@ -806,7 +808,7 @@
             if (tamperedCard) {
                 let allDismissed = true;
                 const items = document.querySelectorAll('.tampered-item');
-                
+
                 items.forEach(item => {
                     const id = item.getAttribute('data-id');
                     if (localStorage.getItem('dismissed_' + id) !== 'true') {
@@ -829,7 +831,7 @@
                     // Check session storage so we don't spam popups constantly
                     if (sessionStorage.getItem('popup_shown') !== 'true') {
                         setTimeout(() => {
-                            alert("🚨 CRITICAL SECURITY ALERT 🚨\n\nDatabase Tampering Detected!\n\nThe system has identified unauthorized changes to the sensor data. The database records do not match the immutable blockchain records.");
+                            alert("CRITICAL SECURITY ALERT\n\nDatabase Tampering Detected!\n\nThe system has identified unauthorized changes to the sensor data. The database records do not match the immutable blockchain records.");
                             sessionStorage.setItem('popup_shown', 'true');
                         }, 500);
                     }
@@ -851,8 +853,8 @@
             });
             const card = document.getElementById('tampered-alert-card');
             const banner = document.getElementById('tampered-notification-banner');
-            if(card) card.style.display = 'none';
-            if(banner) banner.style.display = 'none';
+            if (card) card.style.display = 'none';
+            if (banner) banner.style.display = 'none';
             hasActiveTampering = false;
         }
 

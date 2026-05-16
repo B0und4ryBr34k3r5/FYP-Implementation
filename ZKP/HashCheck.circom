@@ -5,7 +5,7 @@ template HashCheck() {
     signal input hash;
     signal output valid;
 
-    // 简化验证（先做 demo）
+    // Using simple function for demo
     valid <== data * data - hash;
 }
 

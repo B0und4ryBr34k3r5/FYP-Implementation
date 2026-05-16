@@ -19,10 +19,7 @@ async function main() {
         contractAddress
     );
 
-    // =========================
     // SAVE ADDRESS
-    // =========================
-
     const addressPath = path.join(
         __dirname,
         "..",

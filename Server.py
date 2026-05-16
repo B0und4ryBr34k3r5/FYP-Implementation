@@ -12,10 +12,7 @@ from datetime import datetime
 import threading
 import time
 
-# =========================
 # INIT
-# =========================
-
 load_dotenv()
 
 app = Flask(__name__)
@@ -26,16 +23,10 @@ client = MongoClient(os.getenv("MONGO_URI"))
 db = client["iot_system"]
 collection = db["sensor_data"]
 
-# =========================
 # BLOCKCHAIN
-# =========================
-
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:8545"))
 
-# =========================
 # LOAD CONTRACT ADDRESSES
-# =========================
-
 with open("Blockchain/addresses.json") as f:
 
     addresses = json.load(f)
@@ -66,10 +57,7 @@ contract = w3.eth.contract(
     abi=abi
 )
 
-# =========================
 # VERIFIER CONTRACT
-# =========================
-
 with open("Blockchain/artifacts/contracts/Verifier.sol/Groth16Verifier.json") as f:
     verifier_json = json.load(f)
 
@@ -80,21 +68,21 @@ verifier_contract = w3.eth.contract(
     abi=verifier_abi
 )
 
-print("✅ Verifier Connected")
+print("Verifier Connected")
 
-# =========================
 # FUNCTIONS
-# =========================
-
 def hash_data(data):
+    """
+    Computes a SHA-256 hash of the incoming sensor data.
+    This hash serves as a unique fingerprint of the data payload.
+    """
     return hashlib.sha256(str(data).encode()).hexdigest()
 
-# =========================
 # ZKP FUNCTION
-# =========================
-
 def generate_zkp(temp_value):
-
+    """
+    Generates a Zero-Knowledge Proof (ZKP) for the incoming temperature data. Uses SnarkJS and a compiled Circom circuit to prove the data is valid without revealing the actual value to the verifier natively.
+    """
     try:
 
         # demo circuit: data² = hash
@@ -140,50 +128,39 @@ def generate_zkp(temp_value):
 
     except Exception as e:
 
-        print("❌ ZKP ERROR:", e)
+        print("ZKP ERROR:", e)
 
         return None, None
 
-# =========================
 # ROUTES
-# =========================
-
 @app.route("/data", methods=["POST"])
 def receive_data():
-
+    """
+    API Endpoint: Receives raw IoT data, hashes it, generates a ZKP, verifies it on-chain, and if valid, stores it in both Blockchain and MongoDB.
+    """
     data = request.json
 
-    # =========================
     # HASHING
-    # =========================
-
     data_hash = hash_data(data)
 
-    # =========================
     # ZKP GENERATION
-    # =========================
-
     proof, public = generate_zkp(data["temperature"])
 
-    # =========================
     # BLOCKCHAIN ZKP VERIFY
-    # =========================
-
     verified = False
 
     if proof:
 
         try:
 
-            # =========================
             # CONVERT PROOF TO UINT256
-            # =========================
-
             pi_a = [
                 int(proof["pi_a"][0]),
                 int(proof["pi_a"][1])
             ]
 
+            # NOTE: EVM-compatible Groth16 verifiers expect pi_b coordinates to be swapped (index [0][1] then [0][0]) compared to the SnarkJS output.
+            # This is a crucial formatting step for the smart contract call to succeed.
             pi_b = [
                 [
                     int(proof["pi_b"][0][1]),
@@ -204,10 +181,7 @@ def receive_data():
                 int(x) for x in public
             ]
 
-            # =========================
             # VERIFY PROOF
-            # =========================
-
             verified = verifier_contract.functions.verifyProof(
                 pi_a,
                 pi_b,
@@ -217,20 +191,14 @@ def receive_data():
 
         except Exception as e:
 
-            print("❌ VERIFY ERROR:", e)
+            print("VERIFY ERROR:", e)
 
-    # =========================
     # ONLY VERIFIED DATA ALLOWED
-    # =========================
-
     if verified:
 
         try:
 
-            # =========================
             # STORE ON BLOCKCHAIN
-            # =========================
-
             tx = contract.functions.storeData(
                 data["device_id"],
                 data["timestamp"],
@@ -241,12 +209,9 @@ def receive_data():
 
             receipt = w3.eth.wait_for_transaction_receipt(tx)
 
-            print("✅ Stored on Blockchain")
+            print("Stored on Blockchain")
 
-            # =========================
             # STORE IN MONGODB
-            # =========================
-
             collection.insert_one({
 
                 "device_id": data["device_id"],
@@ -259,15 +224,12 @@ def receive_data():
 
             })
 
-            print("✅ Stored in MongoDB")
+            print("Stored in MongoDB")
 
-            # =========================
             # OUTPUT
-            # =========================
-
             print("\n" + "="*60)
 
-            print("📡 VERIFIED IoT DATA RECEIVED")
+            print("VERIFIED IoT DATA RECEIVED")
 
             print("="*60)
 
@@ -275,18 +237,18 @@ def receive_data():
             print(f"Time                : {data['timestamp']}")
             print(f"Temperature         : {data['temperature']}°C")
 
-            print("\n🔐 HASH")
+            print("\nHASH")
             print(f"SHA-256             : {data_hash}")
 
-            print("\n🧠 ZKP")
+            print("\nZKP")
             print(f"Proof Generated     : {'YES' if proof else 'NO'}")
             print(f"Proof Verified      : {verified}")
 
-            print("\n⛓ BLOCKCHAIN")
+            print("\nBLOCKCHAIN")
             print(f"Tx Hash             : {tx.hex()}")
             print(f"Block Number        : {receipt.blockNumber}")
 
-            print("\n🗄 DATABASE")
+            print("\nDATABASE")
             print("Stored in MongoDB")
 
             print("="*60 + "\n")
@@ -298,7 +260,7 @@ def receive_data():
 
         except Exception as e:
 
-            print("❌ BLOCKCHAIN ERROR:", e)
+            print("BLOCKCHAIN ERROR:", e)
 
             return jsonify({
                 "status": "blockchain_failed",
@@ -307,13 +269,10 @@ def receive_data():
 
     else:
 
-        # =========================
         # ALERT ATTACK
-        # =========================
-
         print("\n" + "="*60)
 
-        print("🚨 ALERT ATTACK DETECTED")
+        print("ALERT ATTACK DETECTED")
 
         print("="*60)
 
@@ -321,12 +280,12 @@ def receive_data():
         print(f"Time                : {data['timestamp']}")
         print(f"Temperature         : {data['temperature']}°C")
 
-        print("\n❌ INVALID ZKP PROOF")
+        print("\nINVALID ZKP PROOF")
 
-        print("⛔ Data Rejected")
-        print("⛔ Not Stored in Blockchain")
-        print("⛔ Not Stored in MongoDB")
-        print("⛔ Not Displayed in Dashboard")
+        print("Data Rejected")
+        print("Not Stored in Blockchain")
+        print("Not Stored in MongoDB")
+        print("Not Displayed in Dashboard")
 
         print("="*60 + "\n")
 
@@ -335,27 +294,25 @@ def receive_data():
             "zkp_verified": False
         })
 
-# =========================
-# DIGITAL TWIN
-# =========================
 
+# DIGITAL TWIN
 @app.route("/DigitalTwin")
 def DigitalTwin():
     dashboard_data = get_dashboard_data()
     return render_template("DigitalTwin.html", **dashboard_data)
 
 def get_dashboard_data():
+    """
+    Core function for the Digital Twin.
+    Fetches the latest data from MongoDB and the Blockchain, 
+    performs cross-verification to detect tampering, and evaluates sensor health/alerts.
+    """
 
-    # =========================
     # GET DATA FROM MONGODB
-    # =========================
-
     data = list(collection.find().sort("_id", -1).limit(50))
 
-    # =========================
-    # TEMPERATURE + TIMESTAMP
-    # =========================
 
+    # TEMPERATURE + TIMESTAMP
     temperatures = [d.get("temperature", 0) for d in data]
 
     timestamps = [d.get("timestamp", "") for d in data]
@@ -367,10 +324,7 @@ def get_dashboard_data():
         if data else "No Data"
     )
 
-    # =========================
     # GET DATA FROM BLOCKCHAIN
-    # =========================
-
     blockchain_hashes = {}
     try:
         data_count = contract.functions.getDataCount().call()
@@ -379,12 +333,9 @@ def get_dashboard_data():
             bc_device_id, bc_timestamp, bc_temp, bc_hash, bc_proof = contract.functions.getData(i).call()
             blockchain_hashes[f"{bc_device_id}_{bc_timestamp}"] = bc_hash
     except Exception as e:
-        print("❌ FAILED TO FETCH BLOCKCHAIN DATA:", e)
+        print("FAILED TO FETCH BLOCKCHAIN DATA:", e)
 
-    # =========================
     # CROSS-VERIFICATION (BLOCKCHAIN VS DB)
-    # =========================
-
     integrity_status = []
     tampered_data = []
 
@@ -410,11 +361,11 @@ def get_dashboard_data():
         # Compare hash
         if blockchain_hash and blockchain_hash == recalculated_hash:
 
-            integrity_status.append("VALID ✅")
+            integrity_status.append("VALID")
 
         else:
 
-            integrity_status.append("TAMPERED ❌")
+            integrity_status.append("TAMPERED")
             tampered_data.append({
                 "sensor": device_id,
                 "timestamp": timestamp,
@@ -427,11 +378,8 @@ def get_dashboard_data():
         if integrity_status else "UNKNOWN"
     )
 
-    # =========================
     # SENSOR STATUS CHECK
-    # =========================
-
-    sensor_status = "OFFLINE ❌"
+    sensor_status = "OFFLINE"
 
     if data:
 
@@ -449,20 +397,17 @@ def get_dashboard_data():
                 current_time - latest_time
             ).total_seconds()
 
-            # 如果 15 秒内有新数据
+            # if got an data within 15 second
             if time_difference <= 15:
 
-                sensor_status = "ONLINE ✅"
+                sensor_status = "ONLINE"
 
         except:
 
-            sensor_status = "ERROR ⚠"
+            sensor_status = "ERROR"
 
-    # =========================
     # TEMPERATURE ALERT
-    # =========================
-
-    temperature_alert = "NORMAL ✅"
+    temperature_alert = "NORMAL"
 
     if data:
 
@@ -475,21 +420,21 @@ def get_dashboard_data():
             # High temperature
             if current_temperature >= 75:
 
-                temperature_alert = "HIGH TEMPERATURE 🚨"
+                temperature_alert = "HIGH TEMPERATURE"
 
             # Low temperature
             elif current_temperature < 30:
 
-                temperature_alert = "LOW TEMPERATURE ❄"
+                temperature_alert = "LOW TEMPERATURE"
 
             # Normal temperature
             else:
 
-                temperature_alert = "NORMAL ✅"
+                temperature_alert = "NORMAL"
 
         except:
 
-            temperature_alert = "SENSOR ERROR ⚠"
+            temperature_alert = "SENSOR ERROR"
 
     return {
         "temperatures": temperatures,
@@ -503,11 +448,11 @@ def get_dashboard_data():
         "tampered_data": tampered_data,
     }
 
-# =========================
 # WEBSOCKET BACKGROUND THREAD
-# =========================
-
 def background_thread():
+    """
+    Background worker thread running continuously. It fetches fresh dashboard data every 1 second and broadcasts it via WebSockets to all connected front-end clients, ensuring real-time sync.
+    """
     while True:
         socketio.sleep(1)
         try:
@@ -519,12 +464,9 @@ def background_thread():
 # Start background thread
 socketio.start_background_task(target=background_thread)
 
-# =========================
 # RUN SERVER
-# =========================
-
 if __name__ == "__main__":
 
-    print("\n🚀 Starting Server with WebSocket & ZKP Verification...\n")
+    print("\nStarting Server with WebSocket & ZKP Verification...\n")
 
     socketio.run(app, debug=True)
