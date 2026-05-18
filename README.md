@@ -1,1 +1,322 @@
-# FYP-Implementation
+# 🔐 Securing IoT Digital Twin Systems
+
+A Final Year Project (FYP) implementation demonstrating a secure IoT Digital Twin architecture that integrates **Blockchain**, **Zero-Knowledge Proofs (ZKP)**, and **real-time monitoring** to ensure data integrity, authenticity, and privacy for IoT sensor data.
+
+---
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Security Layers](#security-layers)
+- [Attack Simulations](#attack-simulations)
+
+---
+
+## Overview
+
+This project addresses the critical security challenges in IoT Digital Twin systems by implementing a multi-layered defense architecture. The system receives simulated IoT sensor data, cryptographically verifies it using Zero-Knowledge Proofs, stores it immutably on a blockchain, and mirrors it in a MongoDB database. A real-time Digital Twin dashboard provides live monitoring with cross-verification between the blockchain and database to detect tampering.
+
+### Key Features
+
+- **Zero-Knowledge Proof Verification** — Every sensor reading is verified using a Groth16 ZKP circuit before being accepted, ensuring data authenticity without exposing private inputs.
+- **Blockchain Immutable Ledger** — Verified data is stored on an Ethereum-compatible blockchain (Hardhat local network) via the `IoTData` smart contract.
+- **Cross-Verification** — The Digital Twin dashboard continuously compares database records against blockchain hashes to detect unauthorized data modification.
+- **Real-Time Dashboard** — A WebSocket-powered dashboard with live temperature charts, integrity status, sensor health indicators, and tamper alerts.
+- **Penetration Testing Suite** — A comprehensive set of attack simulation scripts to validate each security layer.
+
+---
+
+## Architecture
+
+```
+┌──────────────┐       POST /data       ┌──────────────────────────────────┐
+│              │ ─────────────────────►  │          Flask Server            │
+│ IoT Simulator│                        │          (Server.py)             │
+│              │                        │                                  │
+└──────────────┘                        │  1. Hash data (SHA-256)          │
+                                        │  2. Generate ZKP (SnarkJS)       │
+                                        │  3. Verify ZKP on-chain          │
+                                        │  4. Store on Blockchain          │
+                                        │  5. Store in MongoDB             │
+                                        └──────────┬───────────────────────┘
+                                                   │
+                                    ┌──────────────┼──────────────┐
+                                    ▼              ▼              ▼
+                             ┌───────────┐  ┌───────────┐  ┌────────────────┐
+                             │ Blockchain │  │  MongoDB   │  │ Digital Twin   │
+                             │ (Hardhat)  │  │  Atlas     │  │ Dashboard      │
+                             │            │  │            │  │ (WebSocket)    │
+                             │ - IoTData  │  │ - sensor   │  │                │
+                             │ - Verifier │  │   _data    │  │ Cross-verifies │
+                             └───────────┘  └───────────┘  │ DB vs Blockchain│
+                                                           └────────────────┘
+```
+
+---
+
+## Tech Stack
+
+| Layer            | Technology                                                      |
+| ---------------- | --------------------------------------------------------------- |
+| Backend Server   | Python, Flask, Flask-SocketIO                                   |
+| Blockchain       | Solidity 0.8.28, Hardhat, Ethers.js                             |
+| ZKP Circuit      | Circom 2.0, SnarkJS (Groth16)                                   |
+| Database         | MongoDB Atlas (via PyMongo)                                     |
+| Frontend         | HTML, CSS (Glassmorphism), Chart.js, Socket.IO                  |
+| Blockchain Lib   | Web3.py                                                         |
+| Testing          | Custom Python unit test framework, Penetration test scripts     |
+
+---
+
+## Project Structure
+
+```
+FYP-Implementation/
+│
+├── Server.py                    # Main Flask backend server
+├── iot_simulator.py             # Simulated IoT sensor data generator
+├── .env                         # Environment variables (MongoDB URI)
+├── .gitignore                   # Git ignore rules
+├── package.json                 # Root-level Node.js dependencies
+│
+├── templates/
+│   └── DigitalTwin.html         # Real-time Digital Twin dashboard (Jinja2)
+│
+├── Blockchain/
+│   ├── contracts/
+│   │   ├── IoTData.sol          # Smart contract for IoT data storage
+│   │   └── Verifier.sol         # Groth16 ZKP verifier (auto-generated by SnarkJS)
+│   ├── scripts/
+│   │   ├── Deploy.js            # Deployment script for IoTData contract
+│   │   └── deployVerifier.js    # Deployment script for Groth16Verifier contract
+│   ├── test/
+│   │   └── Lock.js              # Hardhat test file
+│   ├── artifacts/               # Compiled contract ABIs and bytecode
+│   ├── addresses.json           # Deployed contract addresses
+│   ├── hardhat.config.js        # Hardhat configuration (Solidity 0.8.28)
+│   └── package.json             # Blockchain dev dependencies
+│
+├── ZKP/
+│   ├── HashCheck.circom         # Circom circuit definition
+│   ├── HashCheck.r1cs           # Compiled R1CS constraint system
+│   ├── HashCheck_js/            # WASM witness generator
+│   ├── circuit_final.zkey       # Final proving key (after trusted setup)
+│   ├── verification_key.json    # Verification key for the circuit
+│   ├── Verifier.sol             # Generated Solidity verifier
+│   ├── pot12_*.ptau             # Powers of Tau ceremony files
+│   ├── input.json               # Runtime input for witness generation
+│   ├── proof.json               # Generated proof output
+│   ├── public.json              # Public signals output
+│   └── witness.wtns             # Computed witness
+│
+└── Attack_Simulation/
+    ├── blockchain_attacker.py   # Direct blockchain injection attack
+    ├── zkp_attacker.py          # Fake ZKP proof submission attack
+    ├── spoof_attacker.py        # Spoofed/unauthorized device attack
+    ├── replay_attacker.py       # Replay attack simulation
+    ├── dos_attacker.py          # Denial-of-Service flood attack
+    ├── privacy_attacker.py      # Data privacy extraction attack
+    └── real_world_attacker.py   # Real-world combined attack scenario
+```
+
+---
+
+## Prerequisites
+
+Ensure the following are installed on your system:
+
+- **Python 3.10+**
+- **Node.js 18+** and **npm**
+- **Circom 2.0** — ZKP circuit compiler
+- **SnarkJS** — Zero-Knowledge Proof toolkit (`npm install -g snarkjs`)
+- **MongoDB Atlas** account (or a local MongoDB instance)
+- **Git**
+
+---
+
+## Installation
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/B0und4ryBr34k3r5/FYP-Implementation.git
+cd FYP-Implementation
+```
+
+### 2. Install Python Dependencies
+
+```bash
+pip install flask flask-socketio web3 pymongo python-dotenv requests
+```
+
+### 3. Install Blockchain Dependencies
+
+```bash
+cd Blockchain
+npm install
+cd ..
+```
+
+### 4. Configure Environment Variables
+
+Create a `.env` file in the project root (if not already present):
+
+```env
+MONGO_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority
+```
+
+### 5. Set Up the Blockchain (Hardhat Local Network)
+
+Start the Hardhat local blockchain in a separate terminal:
+
+```bash
+cd Blockchain
+npx hardhat node
+```
+
+### 6. Deploy Smart Contracts
+
+In a new terminal, deploy both contracts:
+
+```bash
+cd Blockchain
+
+# Deploy the Groth16 Verifier contract first
+npx hardhat run scripts/deployVerifier.js --network localhost
+
+# Deploy the IoTData contract
+npx hardhat run scripts/Deploy.js --network localhost
+```
+
+The deployed contract addresses are automatically saved to `Blockchain/addresses.json`.
+
+### 7. ZKP Trusted Setup (Only if rebuilding from scratch)
+
+The ZKP ceremony files are pre-included. If you need to regenerate:
+
+```bash
+# Compile the circuit
+circom ZKP/HashCheck.circom --r1cs --wasm --sym -o ZKP/
+
+# Powers of Tau ceremony
+snarkjs powersoftau new bn128 12 ZKP/pot12_0000.ptau
+snarkjs powersoftau contribute ZKP/pot12_0000.ptau ZKP/pot12_0001.ptau
+snarkjs powersoftau prepare phase2 ZKP/pot12_0001.ptau ZKP/pot12_final.ptau
+
+# Generate proving key
+snarkjs groth16 setup ZKP/HashCheck.r1cs ZKP/pot12_final.ptau ZKP/circuit_0000.zkey
+snarkjs zkey contribute ZKP/circuit_0000.zkey ZKP/circuit_final.zkey
+snarkjs zkey export verificationkey ZKP/circuit_final.zkey ZKP/verification_key.json
+
+# Generate Solidity verifier
+snarkjs zkey export solidityverifier ZKP/circuit_final.zkey ZKP/Verifier.sol
+```
+
+---
+
+## Usage
+
+### Step 1: Start the Hardhat Blockchain
+
+```bash
+cd Blockchain
+npx hardhat node
+```
+
+### Step 2: Start the Flask Server
+
+```bash
+python Server.py
+```
+
+The server starts at `http://127.0.0.1:5000` with WebSocket support.
+
+### Step 3: Start the IoT Simulator
+
+In a separate terminal:
+
+```bash
+python iot_simulator.py
+```
+
+The simulator sends a temperature reading every **10 seconds**. Normal readings fluctuate between 10–70°C using a Gaussian distribution. Every 6th reading forces a high-temperature anomaly (76–90°C) to test alert capabilities.
+
+### Step 4: Open the Digital Twin Dashboard
+
+Navigate to:
+
+```
+http://127.0.0.1:5000/DigitalTwin
+```
+
+The dashboard displays:
+
+- **Integrity Status** — Cross-verification result (VALID / TAMPERED)
+- **Sensor Status** — Online/Offline detection (15-second timeout)
+- **Current Temperature** — Latest reading from the sensor
+- **Temperature Alert** — HIGH (≥75°C) / LOW (<30°C) / NORMAL
+- **Temperature Trend Chart** — Real-time line chart with threshold markers
+- **Live Feed Table** — Scrolling table of recent readings with integrity status
+- **Tamper Alerts** — Critical security incident modal when database tampering is detected
+
+---
+
+## Security Layers
+
+### Layer 1: SHA-256 Data Hashing
+
+Every incoming data payload is hashed using SHA-256. This hash acts as a fingerprint stored on both the blockchain and MongoDB, enabling cross-verification.
+
+### Layer 2: Zero-Knowledge Proof (Groth16)
+
+Before data is accepted, a ZKP is generated using a Circom circuit (`HashCheck.circom`) and verified on-chain via the `Groth16Verifier` smart contract. The circuit proves the data satisfies the constraint `data² = hash` without revealing the actual value to the verifier.
+
+### Layer 3: Blockchain Immutable Storage
+
+Verified data is stored on-chain via the `IoTData` smart contract, creating an immutable audit trail. Each record stores: device ID, timestamp, temperature, SHA-256 hash, and ZKP proof.
+
+### Layer 4: Cross-Verification
+
+The Digital Twin dashboard continuously recalculates hashes from the MongoDB data and compares them against the blockchain-stored hashes. Any mismatch triggers a **TAMPERED** alert, indicating unauthorized database modification.
+
+### Layer 5: Real-Time Monitoring
+
+WebSocket-powered updates (every 1 second) ensure the dashboard reflects the latest system state, including sensor health, temperature anomalies, and security incidents.
+
+---
+
+## Attack Simulations
+
+The `Attack_Simulation/` directory contains penetration testing scripts that validate the system's security defenses.
+
+> **Note:** The Flask server and Hardhat blockchain must be running before executing attack scripts.
+
+| Script                   | Attack Type                         | What It Tests                                                     |
+| ------------------------ | ----------------------------------- | ----------------------------------------------------------------- |
+| `zkp_attacker.py`        | Fake ZKP Proof                      | Submits fabricated proof to the Groth16Verifier smart contract     |
+| `blockchain_attacker.py` | Direct Blockchain Injection         | Bypasses the server and writes directly to the IoTData contract    |
+| `spoof_attacker.py`      | Spoofed / Unauthorized Device       | Sends data from impersonated or rogue device IDs                   |
+| `replay_attacker.py`     | Replay Attack                       | Re-sends a captured legitimate packet multiple times               |
+| `dos_attacker.py`        | Denial-of-Service Flood             | Floods the server with rapid concurrent requests                   |
+| `privacy_attacker.py`    | Data Privacy Extraction             | Attempts to reverse-engineer temperature from ZKP proof data       |
+| `real_world_attacker.py` | Combined Real-World Scenario        | Multi-vector attack combining multiple strategies                  |
+
+### Running an Attack
+
+```bash
+cd Attack_Simulation
+python zkp_attacker.py
+python blockchain_attacker.py
+python spoof_attacker.py
+python replay_attacker.py
+python dos_attacker.py
+python privacy_attacker.py
+```
+
+---
