@@ -122,7 +122,8 @@ FYP-Implementation/
     ├── replay_attacker.py       # Replay attack simulation
     ├── dos_attacker.py          # Denial-of-Service flood attack
     ├── privacy_attacker.py      # Data privacy extraction attack
-    └── real_world_attacker.py   # Real-world combined attack scenario
+    ├── database_tampering_attacker.py   # Database direct tampering attack
+    └── historical_tampering_attacker.py # Historical record modification attack
 ```
 
 ---
@@ -297,15 +298,16 @@ The `Attack_Simulation/` directory contains penetration testing scripts that val
 
 > **Note:** The Flask server and Hardhat blockchain must be running before executing attack scripts.
 
-| Script                   | Attack Type                         | What It Tests                                                     |
-| ------------------------ | ----------------------------------- | ----------------------------------------------------------------- |
-| `zkp_attacker.py`        | Fake ZKP Proof                      | Submits fabricated proof to the Groth16Verifier smart contract     |
-| `blockchain_attacker.py` | Direct Blockchain Injection         | Bypasses the server and writes directly to the IoTData contract    |
-| `spoof_attacker.py`      | Spoofed / Unauthorized Device       | Sends data from impersonated or rogue device IDs                   |
-| `replay_attacker.py`     | Replay Attack                       | Re-sends a captured legitimate packet multiple times               |
-| `dos_attacker.py`        | Denial-of-Service Flood             | Floods the server with rapid concurrent requests                   |
-| `privacy_attacker.py`    | Data Privacy Extraction             | Attempts to reverse-engineer temperature from ZKP proof data       |
-| `real_world_attacker.py` | Combined Real-World Scenario        | Multi-vector attack combining multiple strategies                  |
+| Script                               | Attack Type                         | What It Tests                                                     |
+| ------------------------------------ | ----------------------------------- | ----------------------------------------------------------------- |
+| `zkp_attacker.py`                    | Fake ZKP Proof                      | Submits fabricated proof to the Groth16Verifier smart contract     |
+| `blockchain_attacker.py`             | Direct Blockchain Injection         | Bypasses the server and writes directly to the IoTData contract    |
+| `spoof_attacker.py`                  | Spoofed / Unauthorized Device       | Sends data from impersonated or rogue device IDs                   |
+| `replay_attacker.py`                 | Replay Attack                       | Re-sends a captured legitimate packet multiple times               |
+| `dos_attacker.py`                    | Denial-of-Service Flood             | Floods the server with rapid concurrent requests                   |
+| `privacy_attacker.py`                | Data Privacy Extraction             | Attempts to reverse-engineer temperature from ZKP proof data       |
+| `database_tampering_attacker.py`     | Database Tampering                  | Bypasses the API to modify the most recent record in MongoDB directly |
+| `historical_tampering_attacker.py`   | Historical Data Tampering           | Bypasses the API to modify an older historical record in MongoDB   |
 
 ### Running an Attack
 
@@ -317,6 +319,8 @@ python spoof_attacker.py
 python replay_attacker.py
 python dos_attacker.py
 python privacy_attacker.py
+python database_tampering_attacker.py
+python historical_tampering_attacker.py
 ```
 
 ---
