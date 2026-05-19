@@ -339,7 +339,7 @@ def get_dashboard_data():
     integrity_status = []
     tampered_data = []
 
-    for d in data:
+    for idx, d in enumerate(data):
 
         device_id = d.get("device_id")
         timestamp = d.get("timestamp")
@@ -363,14 +363,24 @@ def get_dashboard_data():
 
             integrity_status.append("VALID")
 
+        elif blockchain_hash is None:
+
+            # No blockchain record found (e.g., blockchain was restarted)
+            integrity_status.append("UNVERIFIED")
+
         else:
 
             integrity_status.append("TAMPERED")
             tampered_data.append({
                 "sensor": device_id,
                 "timestamp": timestamp,
-                "temperature": d.get("temperature")
+                "temperature": d.get("temperature"),
+                "position": idx
             })
+
+    # Separate latest vs historical tampering
+    latest_tampered_data = [t for t in tampered_data if t["position"] == 0]
+    historical_tampered_data = [t for t in tampered_data if t["position"] > 0]
 
     # Latest integrity status
     latest_integrity = (
@@ -446,6 +456,8 @@ def get_dashboard_data():
         "integrity_list": integrity_status,
         "sensor_names": sensor_names,
         "tampered_data": tampered_data,
+        "latest_tampered_data": latest_tampered_data,
+        "historical_tampered_data": historical_tampered_data,
     }
 
 # WEBSOCKET BACKGROUND THREAD

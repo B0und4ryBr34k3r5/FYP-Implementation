@@ -126,7 +126,7 @@
         }
 
         /* =========================
-           TAMPERED ALERT MODAL
+           TAMPERED ALERT CARDS
         ========================= */
 
         .tampered-alert-card {
@@ -139,7 +139,18 @@
             display: none;
         }
 
-        .tampered-alert-card h2 {
+        .historical-alert-card {
+            background: rgba(180, 83, 9, 0.9);
+            border: 2px solid #f59e0b;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 35px;
+            box-shadow: 0 0 30px rgba(245, 158, 11, 0.5);
+            display: none;
+        }
+
+        .tampered-alert-card h2,
+        .historical-alert-card h2 {
             color: white;
             margin-bottom: 15px;
             font-size: 24px;
@@ -150,12 +161,19 @@
             margin-bottom: 20px;
         }
 
-        .tampered-alert-card ul {
+        .historical-alert-card p {
+            color: #fef3c7;
+            margin-bottom: 20px;
+        }
+
+        .tampered-alert-card ul,
+        .historical-alert-card ul {
             list-style-type: none;
             margin-bottom: 20px;
         }
 
-        .tampered-alert-card li {
+        .tampered-alert-card li,
+        .historical-alert-card li {
             background: rgba(0, 0, 0, 0.2);
             padding: 10px 15px;
             margin-bottom: 5px;
@@ -176,8 +194,24 @@
             transition: 0.3s;
         }
 
+        .historical-alert-card button {
+            background: white;
+            color: #b45309;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
         .tampered-alert-card button:hover {
             background: #fecaca;
+        }
+
+        .historical-alert-card button:hover {
+            background: #fde68a;
         }
 
         /* =========================
@@ -258,6 +292,13 @@
             color: #c084fc;
 
             text-shadow: 0 0 15px #c084fc;
+        }
+
+        .yellow {
+
+            color: #facc15;
+
+            text-shadow: 0 0 15px #facc15;
         }
 
         .red {
@@ -404,11 +445,20 @@
             System Notifications
         </div>
 
-        {% if tampered_data|length > 0 %}
+        {% if latest_tampered_data|length > 0 %}
 
-        <div id="tampered-notification-banner" class="notification alert"
+        <div id="latest-tampered-notification" class="notification alert"
             style="background: rgba(248, 113, 113, 0.2); border-left: 6px solid #ef4444; color: #fecaca; font-weight: bold; text-transform: uppercase; font-size: 1.1em; letter-spacing: 1px;">
-            CRITICAL WARNING: DATABASE TAMPERING DETECTED!
+            CRITICAL WARNING: LATEST DATA TAMPERING DETECTED!
+        </div>
+
+        {% endif %}
+
+        {% if historical_tampered_data|length > 0 %}
+
+        <div id="historical-tampered-notification" class="notification warning"
+            style="background: rgba(245, 158, 11, 0.2); border-left: 6px solid #f59e0b; color: #fef3c7; font-weight: bold; text-transform: uppercase; font-size: 1.1em; letter-spacing: 1px;">
+            WARNING: HISTORICAL DATA TAMPERING DETECTED!
         </div>
 
         {% endif %}
@@ -443,19 +493,38 @@
          TAMPERED DATA CARD
     ========================= -->
 
-    <div id="tampered-card-container">
-        {% if tampered_data|length > 0 %}
-        <div id="tampered-alert-card" class="tampered-alert-card">
-            <h2>SECURITY INCIDENT DETECTED</h2>
-            <p>The following records have failed blockchain cross-verification:</p>
+    <!-- Latest Data Tampering Box -->
+    <div id="latest-tampered-container">
+        {% if latest_tampered_data|length > 0 %}
+        <div id="latest-tampered-card" class="tampered-alert-card" style="display:block;">
+            <h2>LATEST DATA TAMPERING DETECTED</h2>
+            <p>The most recent record has failed blockchain cross-verification:</p>
             <ul>
-                {% for rec in tampered_data %}
-                <li class="tampered-item" data-id="{{ rec.sensor }}_{{ rec.timestamp }}">
+                {% for rec in latest_tampered_data %}
+                <li class="latest-tampered-item" data-id="{{ rec.sensor }}_{{ rec.timestamp }}">
                     Sensor: {{ rec.sensor }} | Time: {{ rec.timestamp }} | Temp: {{ rec.temperature }}°C
                 </li>
                 {% endfor %}
             </ul>
-            <button onclick="dismissTamperedAlert()">Acknowledge & Dismiss</button>
+            <button onclick="dismissLatestTampered()">Acknowledge &amp; Dismiss</button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Historical Data Tampering Box -->
+    <div id="historical-tampered-container">
+        {% if historical_tampered_data|length > 0 %}
+        <div id="historical-tampered-card" class="historical-alert-card" style="display:block;">
+            <h2>HISTORICAL DATA TAMPERING DETECTED</h2>
+            <p>The following historical records have failed blockchain cross-verification:</p>
+            <ul>
+                {% for rec in historical_tampered_data %}
+                <li class="historical-tampered-item" data-id="{{ rec.sensor }}_{{ rec.timestamp }}">
+                    Sensor: {{ rec.sensor }} | Time: {{ rec.timestamp }} | Temp: {{ rec.temperature }}°C
+                </li>
+                {% endfor %}
+            </ul>
+            <button onclick="dismissHistoricalTampered()">Acknowledge &amp; Dismiss</button>
         </div>
         {% endif %}
     </div>
@@ -469,7 +538,7 @@
         <div class="card">
             <h3>Integrity Status</h3>
             <div id="val-integrity"
-                class="card-value {% if 'VALID' in integrity_status %}green{% else %}red{% endif %}">
+                class="card-value {% if 'VALID' in integrity_status %}green{% elif 'UNVERIFIED' in integrity_status %}yellow{% else %}red{% endif %}">
                 {{ integrity_status }}
             </div>
         </div>
@@ -714,7 +783,9 @@
             // 1. Update Top Cards
             let intEl = document.getElementById('val-integrity');
             intEl.innerText = msg.integrity_status;
-            intEl.className = msg.integrity_status.includes("VALID") ? "card-value green" : "card-value red";
+            if (msg.integrity_status.includes("VALID")) intEl.className = "card-value green";
+            else if (msg.integrity_status.includes("UNVERIFIED")) intEl.className = "card-value yellow";
+            else intEl.className = "card-value red";
 
             let sensEl = document.getElementById('val-sensor');
             sensEl.innerText = msg.sensor_status;
@@ -753,9 +824,14 @@
             let notifWrapper = document.getElementById('notification-wrapper');
             if (notifWrapper) {
                 let notifHTML = `<div class="section-title">System Notifications</div>`;
-                if (msg.tampered_data.length > 0) {
-                    notifHTML += `<div id="tampered-notification-banner" class="notification alert" style="background: rgba(248, 113, 113, 0.2); border-left: 6px solid #ef4444; color: #fecaca; font-weight: bold; text-transform: uppercase; font-size: 1.1em; letter-spacing: 1px;">
-                        CRITICAL WARNING: DATABASE TAMPERING DETECTED!
+                if (msg.latest_tampered_data.length > 0) {
+                    notifHTML += `<div id="latest-tampered-notification" class="notification alert" style="background: rgba(248, 113, 113, 0.2); border-left: 6px solid #ef4444; color: #fecaca; font-weight: bold; text-transform: uppercase; font-size: 1.1em; letter-spacing: 1px;">
+                        CRITICAL WARNING: LATEST DATA TAMPERING DETECTED!
+                    </div>`;
+                }
+                if (msg.historical_tampered_data.length > 0) {
+                    notifHTML += `<div id="historical-tampered-notification" class="notification warning" style="background: rgba(245, 158, 11, 0.2); border-left: 6px solid #f59e0b; color: #fef3c7; font-weight: bold; text-transform: uppercase; font-size: 1.1em; letter-spacing: 1px;">
+                        WARNING: HISTORICAL DATA TAMPERING DETECTED!
                     </div>`;
                 }
                 if (msg.temperature_alert.includes("HIGH")) {
@@ -770,92 +846,113 @@
                 notifWrapper.innerHTML = notifHTML;
             }
 
-            // 5. Update Tampered Alert Card
-            let tamperedContainer = document.getElementById('tampered-card-container');
-            if (tamperedContainer) {
-                if (msg.tampered_data.length > 0) {
-                    let tHTML = `<div id="tampered-alert-card" class="tampered-alert-card" style="display:block;">
-                        <h2>SECURITY INCIDENT DETECTED</h2>
-                        <p>The following records have failed blockchain cross-verification:</p>
+            // 5. Update Latest Tampered Alert Card
+            let latestContainer = document.getElementById('latest-tampered-container');
+            if (latestContainer) {
+                if (msg.latest_tampered_data.length > 0) {
+                    let ltHTML = `<div id="latest-tampered-card" class="tampered-alert-card" style="display:block;">
+                        <h2>LATEST DATA TAMPERING DETECTED</h2>
+                        <p>The most recent record has failed blockchain cross-verification:</p>
                         <ul>`;
-                    msg.tampered_data.forEach(rec => {
-                        tHTML += `<li class="tampered-item" data-id="${rec.sensor}_${rec.timestamp}">
+                    msg.latest_tampered_data.forEach(rec => {
+                        ltHTML += `<li class="latest-tampered-item" data-id="${rec.sensor}_${rec.timestamp}">
                             Sensor: ${rec.sensor} | Time: ${rec.timestamp} | Temp: ${rec.temperature}°C
                         </li>`;
                     });
-                    tHTML += `</ul><button onclick="dismissTamperedAlert()">Acknowledge & Dismiss</button></div>`;
-                    tamperedContainer.innerHTML = tHTML;
+                    ltHTML += `</ul><button onclick="dismissLatestTampered()">Acknowledge &amp; Dismiss</button></div>`;
+                    latestContainer.innerHTML = ltHTML;
                 } else {
-                    tamperedContainer.innerHTML = "";
+                    latestContainer.innerHTML = "";
                 }
             }
 
-            // 6. Run Dismissal & Popup Logic
+            // 6. Update Historical Tampered Alert Card
+            let historicalContainer = document.getElementById('historical-tampered-container');
+            if (historicalContainer) {
+                if (msg.historical_tampered_data.length > 0) {
+                    let htHTML = `<div id="historical-tampered-card" class="historical-alert-card" style="display:block;">
+                        <h2>HISTORICAL DATA TAMPERING DETECTED</h2>
+                        <p>The following historical records have failed blockchain cross-verification:</p>
+                        <ul>`;
+                    msg.historical_tampered_data.forEach(rec => {
+                        htHTML += `<li class="historical-tampered-item" data-id="${rec.sensor}_${rec.timestamp}">
+                            Sensor: ${rec.sensor} | Time: ${rec.timestamp} | Temp: ${rec.temperature}°C
+                        </li>`;
+                    });
+                    htHTML += `</ul><button onclick="dismissHistoricalTampered()">Acknowledge &amp; Dismiss</button></div>`;
+                    historicalContainer.innerHTML = htHTML;
+                } else {
+                    historicalContainer.innerHTML = "";
+                }
+            }
+
+            // 7. Run Dismissal Logic (no popup)
             runDismissalLogic();
         });
 
         // =========================
-        // DISMISSAL & POPUP LOGIC
+        // DISMISSAL LOGIC
         // =========================
 
-        let hasActiveTampering = false;
-
         function runDismissalLogic() {
-            const tamperedCard = document.getElementById('tampered-alert-card');
-            const tamperedBanner = document.getElementById('tampered-notification-banner');
-            hasActiveTampering = false;
+            // Latest tampered card dismissal
+            dismissCheckCard('latest-tampered-card', 'latest-tampered-notification', '.latest-tampered-item');
+            // Historical tampered card dismissal
+            dismissCheckCard('historical-tampered-card', 'historical-tampered-notification', '.historical-tampered-item');
+        }
 
-            if (tamperedCard) {
+        function dismissCheckCard(cardId, bannerId, itemSelector) {
+            const card = document.getElementById(cardId);
+            const banner = document.getElementById(bannerId);
+
+            if (card) {
                 let allDismissed = true;
-                const items = document.querySelectorAll('.tampered-item');
+                const items = document.querySelectorAll(itemSelector);
 
                 items.forEach(item => {
                     const id = item.getAttribute('data-id');
                     if (localStorage.getItem('dismissed_' + id) !== 'true') {
                         allDismissed = false;
-                        hasActiveTampering = true;
                     } else {
                         item.style.display = 'none';
                     }
                 });
 
                 if (!allDismissed) {
-                    tamperedCard.style.display = 'block';
+                    card.style.display = 'block';
                 } else {
-                    tamperedCard.style.display = 'none';
-                    if (tamperedBanner) tamperedBanner.style.display = 'none';
+                    card.style.display = 'none';
+                    if (banner) banner.style.display = 'none';
                 }
-
-                // Trigger immediate browser pop-up warning
-                if (hasActiveTampering) {
-                    // Check session storage so we don't spam popups constantly
-                    if (sessionStorage.getItem('popup_shown') !== 'true') {
-                        setTimeout(() => {
-                            alert("CRITICAL SECURITY ALERT\n\nDatabase Tampering Detected!\n\nThe system has identified unauthorized changes to the sensor data. The database records do not match the immutable blockchain records.");
-                            sessionStorage.setItem('popup_shown', 'true');
-                        }, 500);
-                    }
-                } else {
-                    sessionStorage.removeItem('popup_shown');
-                }
-            } else {
-                sessionStorage.removeItem('popup_shown');
             }
         }
 
-        function dismissTamperedAlert() {
-            const items = document.querySelectorAll('.tampered-item');
+        function dismissLatestTampered() {
+            const items = document.querySelectorAll('.latest-tampered-item');
             items.forEach(item => {
                 if (item.style.display !== 'none') {
                     const id = item.getAttribute('data-id');
                     localStorage.setItem('dismissed_' + id, 'true');
                 }
             });
-            const card = document.getElementById('tampered-alert-card');
-            const banner = document.getElementById('tampered-notification-banner');
+            const card = document.getElementById('latest-tampered-card');
+            const banner = document.getElementById('latest-tampered-notification');
             if (card) card.style.display = 'none';
             if (banner) banner.style.display = 'none';
-            hasActiveTampering = false;
+        }
+
+        function dismissHistoricalTampered() {
+            const items = document.querySelectorAll('.historical-tampered-item');
+            items.forEach(item => {
+                if (item.style.display !== 'none') {
+                    const id = item.getAttribute('data-id');
+                    localStorage.setItem('dismissed_' + id, 'true');
+                }
+            });
+            const card = document.getElementById('historical-tampered-card');
+            const banner = document.getElementById('historical-tampered-notification');
+            if (card) card.style.display = 'none';
+            if (banner) banner.style.display = 'none';
         }
 
         // Run once on initial load
