@@ -84,6 +84,7 @@ def generate_zkp(temp_value):
     Generates a Zero-Knowledge Proof (ZKP) for the incoming temperature data. Uses SnarkJS and a compiled Circom circuit to prove the data is valid without revealing the actual value to the verifier natively.
     """
     try:
+        start_time = time.time()
 
         # demo circuit: data² = hash
         data_val = int(temp_value)
@@ -124,13 +125,14 @@ def generate_zkp(temp_value):
         with open("ZKP/public.json") as f:
             public = json.load(f)
 
-        return proof, public
+        generation_time_ms = (time.time() - start_time) * 1000
+        return proof, public, generation_time_ms
 
     except Exception as e:
 
         print("ZKP ERROR:", e)
 
-        return None, None
+        return None, None, 0
 
 # ROUTES
 @app.route("/data", methods=["POST"])
@@ -144,10 +146,11 @@ def receive_data():
     data_hash = hash_data(data)
 
     # ZKP GENERATION
-    proof, public = generate_zkp(data["temperature"])
+    proof, public, generation_time_ms = generate_zkp(data["temperature"])
 
     # BLOCKCHAIN ZKP VERIFY
     verified = False
+    verification_time_ms = 0
 
     if proof:
 
@@ -182,12 +185,14 @@ def receive_data():
             ]
 
             # VERIFY PROOF
+            verify_start = time.time()
             verified = verifier_contract.functions.verifyProof(
                 pi_a,
                 pi_b,
                 pi_c,
                 public_signals
             ).call()
+            verification_time_ms = (time.time() - verify_start) * 1000
 
         except Exception as e:
 
@@ -220,7 +225,9 @@ def receive_data():
                 "hash": data_hash,
                 "zkp_verified": verified,
                 "zkp_proof": proof,
-                "public_signals": public
+                "public_signals": public,
+                "zkp_generation_time_ms": generation_time_ms,
+                "zkp_verification_time_ms": verification_time_ms
 
             })
 
@@ -243,6 +250,8 @@ def receive_data():
             print("\nZKP")
             print(f"Proof Generated     : {'YES' if proof else 'NO'}")
             print(f"Proof Verified      : {verified}")
+            print(f"Generation Time     : {generation_time_ms:.2f} ms")
+            print(f"Verification Time   : {verification_time_ms:.2f} ms")
 
             print("\nBLOCKCHAIN")
             print(f"Tx Hash             : {tx.hex()}")
